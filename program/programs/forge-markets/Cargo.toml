@@ -26,3 +26,7 @@ idl-build = ["anchor-lang/idl-build"]
 # Anchor 1.0.2 — pinned so the whole Cargo workspace resolves on a single
 # Solana 3.x crate tree (see Anchor.toml note).
 anchor-lang = "1.0.2"
+# On-chain security.txt. Default (no) features = macro only — the optional `parser`
+# deps (memchr/thiserror) are for host-side tooling and are NOT pulled into the
+# program build. The macro is gated `not(feature = "no-entrypoint")` in lib.rs.
+solana-security-txt = "1.1.3"

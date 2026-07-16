@@ -44,6 +44,28 @@ use txoracle_cpi::{BinaryExpression, ProofNode, ScoresBatchSummary, StatTerm, Tr
 
 declare_id!("7Pvo6SEh1zBa1Euvj5QQ4td9GpfsQosTpxhqwWtWUFt6");
 
+// ── On-chain security.txt (production-readiness metadata) ─────────────────────
+// Embeds a machine-readable contact + disclosure policy into the deployed binary
+// so `query-security-txt` and explorers can surface how to report an issue. This
+// is a DEVNET program (see SECURITY.md). Gated `not(feature = "no-entrypoint")`
+// per the crate's docs: the macro emits a `#[no_mangle] SECURITY_TXT` symbol, so
+// it must be present ONLY in the standalone program binary — never when
+// forge-markets is compiled as a CPI library, which would otherwise raise a
+// "multiple definition of SECURITY_TXT" link error. The host-target Mollusk suite
+// does not link this crate, so its build is unaffected either way.
+#[cfg(not(feature = "no-entrypoint"))]
+use solana_security_txt::security_txt;
+
+#[cfg(not(feature = "no-entrypoint"))]
+security_txt! {
+    name: "AgentForge Markets",
+    project_url: "https://github.com/GeckoVision/agent-forge",
+    source_code: "https://github.com/GeckoVision/agent-forge",
+    contacts: "link:https://github.com/GeckoVision/agent-forge/security, link:https://github.com/GeckoVision/agent-forge/issues",
+    policy: "https://github.com/GeckoVision/agent-forge/blob/main/SECURITY.md",
+    preferred_languages: "en"
+}
+
 #[program]
 pub mod forge_markets {
     use super::*;
