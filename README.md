@@ -22,6 +22,46 @@ The full loop runs end-to-end on devnet — **create market → stake YES / NO �
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    ODDS[["TxLINE odds feed<br/>verifiable real-time World Cup data"]]
+
+    subgraph AGT["Autonomous agent · backend/agentforge — one code path: recorded ($0, offline) & live"]
+      direction LR
+      FEED["txline_feed<br/>odds → typed OddsSnapshot"]
+      DET["detector<br/>flag a sharp move<br/>(implied-prob shift)"]
+      DEC["decision<br/>size a bet in a RiskPolicy<br/>(per-bet + per-fixture cap)"]
+      FCL["forge_client<br/>build create_market /<br/>stake / settle / claim"]
+      WAL["wallet · WalletSeam<br/>sign ONLY within custody policy<br/>(max-SOL cap + program allow-list)"]
+      FEED --> DET --> DEC --> FCL --> WAL
+    end
+
+    subgraph CHAIN["Solana · program/ · Anchor 1.0"]
+      direction TB
+      FM["forge_markets program<br/>create_market · stake · settle · claim"]
+      ORA["txoracle · validate_stat<br/>verifies a 3-stage Merkle proof<br/>against its committed daily root"]
+      FM -->|"settle: CPI — the program never calls the outcome"| ORA
+      ORA -->|"Ok(true / false) · a tampered proof reverts settle"| FM
+    end
+
+    subgraph WEB["Frontend · frontend/ · Next.js + shadcn/ui"]
+      direction TB
+      PROXY["/api/rpc<br/>server-side RPC proxy<br/>(Helius key stays server-side)"]
+      VIEW["Merkle-proof viewer<br/>the proof folds up into the on-chain root"]
+      PROXY --> VIEW
+    end
+
+    ODDS -->|"recorded / $0 · or live"| FEED
+    WAL ==>|"signed within policy → submit<br/>(local keypair OR Privy TEE enclave · refused before a signature exists if out of policy)"| FM
+    FM -.->|"reads on-chain state (RPC)"| PROXY
+```
+
+Two independent bounds hold every bet: the **RiskPolicy** sizes it (client-side),
+and the **wallet** refuses anything past its custody cap or off its program
+allow-list — before a signature exists. Settlement is trustless: `settle` CPIs the
+oracle, which proves the result against its own on-chain root; a tampered proof
+reverts. The program never calls the outcome.
+
 | Layer | What it does |
 |---|---|
 | **On-chain** — `program/` (Anchor 1.0) | `forge_markets`: `create_market` / `stake` / `settle` / `claim`. `settle` CPIs the verifiable-data oracle; a bad proof reverts. Fails **closed**. |
