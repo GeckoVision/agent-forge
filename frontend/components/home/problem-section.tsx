@@ -21,7 +21,7 @@ export function ProblemSection() {
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(72% 62% at 12% -6%, color-mix(in oklch, var(--primary) 24%, transparent), transparent 60%), radial-gradient(64% 66% at 98% 108%, color-mix(in oklch, var(--gold) 15%, transparent), transparent 60%)",
+              "radial-gradient(72% 64% at 12% -6%, color-mix(in oklch, var(--primary) 34%, transparent), transparent 62%), radial-gradient(64% 68% at 98% 108%, color-mix(in oklch, var(--gold) 22%, transparent), transparent 62%), linear-gradient(120deg, color-mix(in oklch, var(--primary) 16%, transparent) 0%, transparent 56%)",
           }}
         />
         <div className="poster-grain absolute inset-0" />

@@ -9,9 +9,9 @@ import { explorerAddress, FORGE_PROGRAM_ID } from "@/lib/solana/config";
 
 /**
  * Sports-poster hero. The z-sandwich, back to front:
- *   z-0  ambient texture (grain + column rules + purple/gold glow)
+ *   z-0  ambient texture (grain + column rules + purple/gold gradient wash)
  *   z-10 oversized compressed ALL-CAPS headline (the "background type")
- *   z-20 the REAL product card, square-edged, floating over the type
+ *   z-20 the REAL stat card, square-edged, floated clear at the right
  *   z-30 foreground UI — eyebrow, subhead, trust badge, CTAs, live stats
  * The full approved message is preserved for a11y/SEO (sr-only); the visible
  * type is the compressed poster cut of it.
@@ -19,22 +19,17 @@ import { explorerAddress, FORGE_PROGRAM_ID } from "@/lib/solana/config";
 export function PosterHero() {
   return (
     <section className="relative isolate overflow-hidden border-b border-border/60">
-      {/* ── z-0 · ambient poster texture ─────────────────────────────────── */}
+      {/* ── z-0 · ambient poster texture — the visible purple gradient wash
+             lives HERE (narrative surface only), never on data surfaces ──── */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="poster-vgrid absolute inset-0" />
-        {/* purple → gold backlight, anchored where the card floats */}
+        {/* purple atmospheric wash across the hero + a gold accent, anchored
+            where the stat card floats — clearly visible on the lighter base */}
         <div
-          className="absolute -top-24 right-[-10%] h-[42rem] w-[42rem] rounded-full blur-3xl"
+          className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(closest-side, color-mix(in oklch, var(--primary) 26%, transparent), transparent 78%)",
-          }}
-        />
-        <div
-          className="absolute bottom-[-20%] right-[6%] h-[26rem] w-[26rem] rounded-full blur-3xl"
-          style={{
-            background:
-              "radial-gradient(closest-side, color-mix(in oklch, var(--gold) 18%, transparent), transparent 76%)",
+              "radial-gradient(60% 72% at 80% 30%, color-mix(in oklch, var(--primary) 44%, transparent), transparent 70%), radial-gradient(52% 60% at 94% 98%, color-mix(in oklch, var(--gold) 26%, transparent), transparent 72%), linear-gradient(158deg, color-mix(in oklch, var(--primary) 24%, transparent) 0%, transparent 48%)",
           }}
         />
         <div className="poster-grain absolute inset-0" />
@@ -67,10 +62,10 @@ export function PosterHero() {
             </span>
           </h1>
 
-          {/* the real product card, overlapping the type from the right.
-              Pulled left on lg so its edge sits over the tail of "SPORTS —"; the
-              left of each word stays readable, the card covers the right. */}
-          <div className="relative z-20 mx-auto mt-10 w-full max-w-sm lg:absolute lg:top-1/2 lg:right-0 lg:mt-0 lg:-translate-x-[6rem] lg:-translate-y-1/2 xl:-translate-x-[9rem]">
+          {/* the real stat card — floated at the RIGHT, clear of the type so no
+              letter of "BET ON / SPORTS / GET PAID" is obscured. It nests into
+              the right whitespace beside the headline; stacks below on < lg. */}
+          <div className="relative z-20 mx-auto mt-10 w-full max-w-sm lg:absolute lg:top-1/2 lg:right-0 lg:mt-0 lg:-translate-y-1/2">
             <HeroMarketCard />
           </div>
         </div>

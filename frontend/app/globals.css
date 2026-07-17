@@ -11,11 +11,11 @@
   ochre = the pot. A distant cousin of the source system, its own purple face.
 */
 :root {
-  /* base tokens */
-  --bg: hsl(256 30% 6.5%); /* ~#0C0A12 — violet-biased charcoal, marries the purple */
-  --surface: hsl(221 27% 12%); /* #161B26 */
-  --surface-2: hsl(221 22% 15%);
-  --border-cool: hsl(221 20% 18%);
+  /* base tokens — dark PURPLE (a purple gradient reads clearly across it) */
+  --bg: hsl(258 45% 12%); /* deep purple base */
+  --surface: hsl(257 33% 18%); /* card — elevated above the purple base */
+  --surface-2: hsl(256 29% 22%);
+  --border-cool: hsl(256 24% 29%); /* crisp enough to define edges on the lighter base */
   --text-primary: hsl(220 20% 94%); /* ~#EDEEF3 */
   --text-secondary: hsl(220 13% 67%);
   --text-muted: hsl(220 10% 50%);
@@ -23,9 +23,9 @@
   /* brand + verdict */
   --brand: hsl(258 90% 66%); /* #8B5CF6 violet */
   --brand-2: hsl(252 92% 78%); /* lighter lavender */
-  --verdict-yes: hsl(156 55% 48%);
-  --verdict-no: hsl(0 66% 60%);
-  --verdict-pot: hsl(42 65% 56%); /* #D6A949 ochre */
+  --verdict-yes: hsl(258 90% 66%); /* YES/settled = bright accent purple #8B5CF6 (was green) */
+  --verdict-no: hsl(0 66% 60%); /* NO = red — keeps YES-vs-NO contrast */
+  --verdict-pot: hsl(42 65% 56%); /* #D6A949 ochre — pot stays gold */
   --cool-info: hsl(205 72% 63%);
 
   --radius: 0.5rem;
@@ -35,7 +35,7 @@
   --foreground: var(--text-primary);
   --card: var(--surface);
   --card-foreground: var(--text-primary);
-  --popover: hsl(221 28% 10%);
+  --popover: hsl(258 42% 9%);
   --popover-foreground: var(--text-primary);
   --primary: var(--brand);
   --primary-foreground: hsl(0 0% 100%);
@@ -44,11 +44,11 @@
   --muted: var(--surface-2);
   --muted-foreground: var(--text-secondary);
   --accent: var(--brand-2);
-  --accent-foreground: hsl(256 30% 6.5%);
+  --accent-foreground: hsl(258 45% 8%);
   --destructive: var(--verdict-no);
   --destructive-foreground: hsl(0 0% 100%);
   --border: var(--border-cool);
-  --input: hsl(221 20% 22%);
+  --input: hsl(256 26% 30%);
   --ring: var(--brand);
 
   /* app semantics */
@@ -68,7 +68,7 @@
   --foreground: var(--text-primary);
   --card: var(--surface);
   --card-foreground: var(--text-primary);
-  --popover: hsl(221 28% 10%);
+  --popover: hsl(258 42% 9%);
   --popover-foreground: var(--text-primary);
   --primary: var(--brand);
   --primary-foreground: hsl(0 0% 100%);
@@ -77,11 +77,11 @@
   --muted: var(--surface-2);
   --muted-foreground: var(--text-secondary);
   --accent: var(--brand-2);
-  --accent-foreground: hsl(256 30% 6.5%);
+  --accent-foreground: hsl(258 45% 8%);
   --destructive: var(--verdict-no);
   --destructive-foreground: hsl(0 0% 100%);
   --border: var(--border-cool);
-  --input: hsl(221 20% 22%);
+  --input: hsl(256 26% 30%);
   --ring: var(--brand);
   --yes: var(--verdict-yes);
   --no: var(--verdict-no);
@@ -209,11 +209,12 @@
   letter-spacing: 0.008em;
   text-transform: uppercase;
 }
-/* The oversized hero background type — giant, compressed, all-caps. */
+/* The oversized hero background type — giant, compressed, all-caps. Sized so the
+   longest line clears the stat card floated at the right (no glyph obscured). */
 .poster-headline {
   font-family: var(--font-anton), var(--font-geist-sans), sans-serif;
-  font-size: clamp(3rem, 16vw, 12rem);
-  line-height: 0.85;
+  font-size: clamp(2.75rem, 11vw, 9rem);
+  line-height: 0.86;
   font-weight: 400;
   letter-spacing: -0.01em;
   text-transform: uppercase;
@@ -240,7 +241,7 @@
   --accent: hsl(250 55% 54%);
   --accent-foreground: hsl(0 0% 100%);
   --gold: hsl(38 72% 40%);
-  --yes: hsl(156 55% 34%);
+  --yes: hsl(258 64% 52%); /* YES = purple on the cream band too (keeps verdict semantics) */
   --no: hsl(0 62% 50%);
   --info: hsl(205 72% 40%);
   --ring: hsl(258 68% 56%);
@@ -248,20 +249,11 @@
   color: var(--foreground);
 }
 
-/* ── Ambient backdrop: cool ink with a faint violet aurora + editorial grid ── */
+/* ── Ambient backdrop: FLAT dark-purple base. The barbell — the purple gradient
+      wash lives ONLY on the narrative surfaces (hero + problem); every data
+      surface sits flat on this base so cards read as clean data panels. ── */
 .app-backdrop {
   background-color: var(--background);
-  background-image:
-    radial-gradient(
-      58rem 40rem at 10% -10%,
-      color-mix(in oklch, var(--primary) 18%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      50rem 36rem at 94% 2%,
-      color-mix(in oklch, var(--accent) 14%, transparent),
-      transparent 62%
-    );
 }
 .grid-overlay {
   background-image:
