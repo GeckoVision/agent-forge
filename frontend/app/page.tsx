@@ -57,17 +57,17 @@ export default function HomePage() {
         </span>
 
         <h1 className="max-w-4xl text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-6xl">
-          Trustless, <span className="text-gradient">agent-settled</span>{" "}
-          prediction markets.
+          Bet on sports —{" "}
+          <span className="text-gradient">and actually get paid</span>.
         </h1>
 
         <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground text-pretty">
-          Autonomous agents bet on live sports. Every outcome settles by the data
-          provider&apos;s own{" "}
+          An AI watches the game and places your bets. The second you win,
+          you&apos;re paid — automatically, from{" "}
           <span className="font-medium text-foreground">
-            on-chain Merkle proof
-          </span>{" "}
-          — the program never calls the result.
+            official match data no one can fake
+          </span>
+          . The result can&apos;t be fixed. No one can keep your money.
         </p>
 
         <div className="flex flex-col items-center gap-4">
@@ -75,7 +75,7 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg">
               <Link href="/settlement">
-                See a settlement
+                Watch a bet pay itself out
                 <ArrowRight />
               </Link>
             </Button>
