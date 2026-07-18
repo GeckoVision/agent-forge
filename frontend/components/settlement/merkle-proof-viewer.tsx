@@ -121,7 +121,7 @@ export function MerkleProofViewer({
             The proof that settles this market
           </h2>
           <p className="text-sm text-muted-foreground">
-            Fixture {RECORDED_QUERY.fixtureId} · stat #{RECORDED_QUERY.statKey} ·{" "}
+            Match #{RECORDED_QUERY.fixtureId} · stat #{RECORDED_QUERY.statKey} ·{" "}
             {totalProofNodes()}{" "}
             Merkle hashes fold up to TxODDS&apos;s committed on-chain root.
           </p>
@@ -169,7 +169,7 @@ export function MerkleProofViewer({
           icon={Layers}
           tone="primary"
           label="Events sub-tree root"
-          sublabel="travels inside the on-chain fixture summary"
+          sublabel="travels inside the on-chain match summary"
           bytes={RECORDED_PROOF.summary.eventStatsSubTreeRoot}
         />
         <ProofPath
@@ -197,7 +197,7 @@ export function MerkleProofViewer({
             <Binary className="size-4.5" />
           </span>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Fixture stat (the leaf)</span>
+            <span className="text-sm font-semibold">Match stat (the leaf)</span>
             <span className="text-xs text-muted-foreground">
               the single measured value the whole proof commits to
             </span>

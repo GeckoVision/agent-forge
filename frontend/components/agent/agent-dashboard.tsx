@@ -184,13 +184,13 @@ function OnChainResult({ fixtureId }: { fixtureId: number }) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        On-chain stakes · Solana devnet · fixture {fixtureId}
+        On-chain stakes · Solana devnet · match #{fixtureId}
       </span>
       {bets.map((bet) => (
         <BetRow key={bet.market.address} bet={bet} />
       ))}
       <p className="text-[11px] text-muted-foreground/70">
-        Every market this program holds for the fixture, read live — one per
+        Every market this program holds for the match, read live — one per
         stat. Amounts, state and signatures come from the accounts themselves.
       </p>
       <Button asChild variant="outline" size="sm" className="w-fit">
@@ -233,7 +233,7 @@ function ReplayDashboard({ slice }: { slice: ReplaySlice }) {
     },
     {
       title: "Size the bet",
-      detail: `${POLICY.stakePerBetSol} SOL — the risk policy's per-bet stake, inside the ${POLICY.maxPerFixtureSol} SOL per-fixture cap.`,
+      detail: `${POLICY.stakePerBetSol} SOL — the risk policy's per-bet stake, inside the ${POLICY.maxPerFixtureSol} SOL per-match cap.`,
       reachedAt: 3 as const,
     },
     {
@@ -288,7 +288,7 @@ function ReplayDashboard({ slice }: { slice: ReplaySlice }) {
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   {fixture.competition} · {fixture.participant1} v{" "}
-                  {fixture.participant2} · fixture {fixture.id}
+                  {fixture.participant2} · match #{fixture.id}
                 </p>
               </div>
             </div>
@@ -384,7 +384,7 @@ export function AgentDashboard() {
         <CardContent className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold">The recorded capture could not be read</h2>
           <p className="text-sm text-muted-foreground">
-            {error ?? "The capture database returned nothing for this fixture."}
+            {error ?? "The capture database returned nothing for this match."}
           </p>
           <p className="text-xs text-muted-foreground/70">
             The odds on this page are read from the captured TxLINE records at request time.

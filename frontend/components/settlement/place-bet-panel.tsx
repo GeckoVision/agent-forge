@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   TransactionMessage,
@@ -9,11 +9,14 @@ import {
 } from "@solana/web3.js";
 import {
   Ban,
+  CircleAlert,
   CircleCheck,
   FlaskConical,
+  Info,
   LoaderCircle,
   Send,
   Ticket,
+  TriangleAlert,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +25,8 @@ import { Separator } from "@/components/ui/separator";
 import { ConnectButton } from "@/components/wallet/connect-button";
 import { ExplorerLink } from "@/components/shared/explorer-link";
 import { shortAddress } from "@/lib/format";
+import { useCluster } from "@/hooks/use-cluster";
+import { CLUSTER_LABEL } from "@/lib/solana/cluster";
 import type { ExplorerCluster } from "@/lib/solana/config";
 import { confirmSignature } from "@/lib/solana/confirm";
 import {
@@ -33,7 +38,17 @@ import {
   type MarketAccount,
   type Side,
 } from "@/lib/solana/forge-client";
+import {
+  describePredicate,
+  type FixtureParticipants,
+  sideOutcome,
+} from "@/lib/solana/predicate";
+import { fixtureHeadline } from "@/components/settlement/market-summary";
 import { cn } from "@/lib/utils";
+
+// The app talks to devnet; a stake signed by a wallet on any other cluster is the exact
+// mismatch that silently never-broadcasts. This is the network the panel expects.
+const EXPECTED_CLUSTER = "devnet";
 
 const AMOUNTS = [0.002, 0.005, 0.01];
 
@@ -76,13 +91,19 @@ function AccountRow({
 
 export function PlaceBetPanel({
   market,
+  participants,
   cluster = "devnet",
 }: {
   market: MarketAccount;
+  participants?: FixtureParticipants | null;
   cluster?: ExplorerCluster;
 }) {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
+  // The cluster the panel's connection actually reaches, verified from its genesis hash. This
+  // is the network a stake truly targets — NOT the wallet's own selected cluster, which the
+  // adapter does not expose (see lib/solana/cluster.ts).
+  const { cluster: appCluster } = useCluster();
 
   const [side, setSide] = useState<Side>("Yes");
   const [amount, setAmount] = useState(0.005);
@@ -90,6 +111,13 @@ export function PlaceBetPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[] | null>(null);
   const [sig, setSig] = useState<string | null>(null);
+  // Whether this wallet already holds a position on this market. The program allows exactly
+  // one stake per staker per market (`init`, not `init_if_needed`), so a second stake can
+  // never succeed — telling the user up front beats a cryptic failure. Keyed by the position
+  // PDA so a stale result for a previous market is never read as the current one.
+  const [posState, setPosState] = useState<{ key: string; exists: boolean } | null>(
+    null,
+  );
 
   // Build the exact `stake` instruction client-side — the same wire format the
   // deployed program expects (mirrors backend/gorilla/forge_client.py).
@@ -107,6 +135,30 @@ export function PlaceBetPanel({
       return null;
     }
   }, [publicKey, amount, market.fixtureId, market.statKey, side]);
+
+  // A single cheap read of the DERIVED position PDA (no scan, no waterfall) — if the account
+  // already exists this wallet has already staked here. Non-blocking: render never waits on it,
+  // and any RPC hiccup leaves `hasPosition` null so we fall back to the static rule.
+  const positionKey = built?.position.toBase58() ?? null;
+  useEffect(() => {
+    if (!built || !positionKey) return;
+    let alive = true;
+    connection
+      .getAccountInfo(built.position)
+      .then((info) => alive && setPosState({ key: positionKey, exists: info !== null }))
+      .catch(() => {
+        // Leave posState as-is; render falls back to the static one-stake rule on a stale key.
+      });
+    return () => {
+      alive = false;
+    };
+    // Re-check only when the derived position address changes (wallet/market).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionKey]);
+
+  // Only trust a result that matches the current position PDA — no synchronous reset needed.
+  const hasPosition =
+    posState && posState.key === positionKey ? posState.exists : null;
 
   const reset = () => {
     setPhase("idle");
@@ -174,12 +226,20 @@ export function PlaceBetPanel({
         setMessage("Transaction reverted on-chain.");
         return;
       }
+      if (outcome === "timeout") {
+        // A signature exists the moment the wallet signs — it proves NOTHING about whether the
+        // transaction was broadcast or landed. Report the honest truth: unconfirmed, and
+        // possibly never sent (a common symptom of a wallet on the wrong cluster).
+        setPhase("send-err");
+        setMessage(
+          "Couldn't confirm this bet within 30s. It may not have been broadcast — " +
+            "check the signature on the explorer, and that your wallet is on " +
+            `${CLUSTER_LABEL[EXPECTED_CLUSTER]}. Nothing has been recorded as placed.`,
+        );
+        return;
+      }
       setPhase("sent");
-      setMessage(
-        outcome === "timeout"
-          ? "Bet submitted — confirmation is taking longer than usual."
-          : `Bet placed on-chain (${outcome}).`,
-      );
+      setMessage(`Bet placed on-chain (${outcome}).`);
     } catch (e) {
       setPhase("send-err");
       setMessage(e instanceof Error ? e.message : String(e));
@@ -203,6 +263,12 @@ export function PlaceBetPanel({
   }
 
   const settled = market.state === "Settled";
+  const headline = fixtureHeadline(market, participants);
+  const { human, technical } = describePredicate(market, participants);
+  const clusterOk = appCluster === EXPECTED_CLUSTER;
+  // Placing is only allowed after a clean simulation (or to retry a failed send). This is the
+  // gate that item 2's disabled styling and hint make visible.
+  const canPlace = phase === "sim-ok" || phase === "send-err";
 
   return (
     <div className="flex flex-col gap-4">
@@ -216,28 +282,121 @@ export function PlaceBetPanel({
         </Badge>
       </div>
 
-      {/* side + amount */}
+      {/* what this bet is, in plain language — teams first, then the wager */}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">{headline}</span>
+        <span className="text-sm text-muted-foreground">
+          Betting on:{" "}
+          <span className="text-foreground">{human ?? technical}</span>
+          {human && (
+            <span className="ml-1 font-mono text-xs text-muted-foreground/80">
+              ({technical})
+            </span>
+          )}
+        </span>
+      </div>
+
+      {/* network — the app talks to devnet; a wallet on any other cluster silently fails */}
+      <div
+        className={cn(
+          "flex items-start gap-2 rounded-lg border p-2.5 text-xs leading-relaxed",
+          appCluster === null
+            ? "border-border/70 bg-secondary/40 text-muted-foreground"
+            : clusterOk
+              ? "border-primary/25 bg-primary/5 text-muted-foreground"
+              : "border-destructive/40 bg-destructive/5 text-foreground",
+        )}
+      >
+        {appCluster === null ? (
+          <>
+            <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin" />
+            <span>Checking which network this app is connected to…</span>
+          </>
+        ) : clusterOk ? (
+          <>
+            <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+            <span>
+              This app settles on{" "}
+              <span className="font-medium text-foreground">
+                {CLUSTER_LABEL[EXPECTED_CLUSTER]}
+              </span>
+              . Make sure your wallet is set to {CLUSTER_LABEL[EXPECTED_CLUSTER]} too,
+              or the bet will fail to broadcast.
+            </span>
+          </>
+        ) : (
+          <>
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+            <span>
+              This app is connected to{" "}
+              <span className="font-medium">{CLUSTER_LABEL[appCluster]}</span>, not{" "}
+              {CLUSTER_LABEL[EXPECTED_CLUSTER]}. Bets here will not settle as expected
+              — switch to {CLUSTER_LABEL[EXPECTED_CLUSTER]} before staking.
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* the one-stake-per-market rule — an explanation shown BEFORE you hit it, not an error */}
+      <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-secondary/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
+        {hasPosition ? (
+          <>
+            <CircleAlert className="mt-0.5 size-3.5 shrink-0 text-accent" />
+            <span>
+              <span className="text-foreground">
+                You&rsquo;ve already staked on this market.
+              </span>{" "}
+              It&rsquo;s one stake per market — you can&rsquo;t add to it or switch sides.
+            </span>
+          </>
+        ) : (
+          <>
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              One stake per market. Once you place it you can&rsquo;t add to it or
+              switch sides — so pick your side and amount before you sign.
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* side + amount — each side states its outcome so YES/NO is never ambiguous */}
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-2">
-          {(["Yes", "No"] as Side[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                setSide(s);
-                reset();
-              }}
-              className={cn(
-                "rounded-lg border py-2 text-sm font-semibold transition-colors cursor-pointer",
-                side === s
-                  ? s === "Yes"
-                    ? "border-yes/40 bg-yes/10 text-yes"
-                    : "border-no/40 bg-no/10 text-no"
-                  : "border-border/70 text-muted-foreground hover:bg-secondary",
-              )}
-            >
-              {s.toUpperCase()}
-            </button>
-          ))}
+          {(["Yes", "No"] as Side[]).map((s) => {
+            // Null for unmapped stats — the button then shows plain YES/NO rather than
+            // an invented negation.
+            const outcome = sideOutcome(market, participants, s);
+            return (
+              <button
+                key={s}
+                onClick={() => {
+                  setSide(s);
+                  reset();
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2 transition-colors cursor-pointer",
+                  side === s
+                    ? s === "Yes"
+                      ? "border-yes/40 bg-yes/10 text-yes"
+                      : "border-no/40 bg-no/10 text-no"
+                    : "border-border/70 text-muted-foreground hover:bg-secondary",
+                )}
+              >
+                <span className="text-sm font-semibold">{s.toUpperCase()}</span>
+                {outcome && (
+                  <span
+                    className={cn(
+                      "text-xs leading-tight",
+                      side === s ? "opacity-90" : "text-muted-foreground",
+                    )}
+                  >
+                    {outcome}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           {AMOUNTS.map((a) => (
@@ -303,6 +462,43 @@ export function PlaceBetPanel({
         </p>
       )}
 
+      {/* the full bet, restated in words, right where the user commits to it */}
+      <p className="rounded-lg border border-border/70 bg-background/40 p-2.5 text-sm">
+        {(() => {
+          const outcome = sideOutcome(market, participants, side);
+          return outcome ? (
+            <>
+              You&rsquo;re staking{" "}
+              <span className="tabular font-semibold">{amount} SOL</span> that{" "}
+              <span
+                className={cn(
+                  "font-semibold",
+                  side === "Yes" ? "text-yes" : "text-no",
+                )}
+              >
+                {outcome}
+              </span>
+              .
+            </>
+          ) : (
+            // Unmapped stat — state the side and the exact predicate, never a guessed outcome.
+            <>
+              You&rsquo;re staking{" "}
+              <span className="tabular font-semibold">{amount} SOL</span> on{" "}
+              <span
+                className={cn(
+                  "font-semibold",
+                  side === "Yes" ? "text-yes" : "text-no",
+                )}
+              >
+                {side.toUpperCase()}
+              </span>{" "}
+              for <span className="font-mono text-xs">{technical}</span>.
+            </>
+          );
+        })()}
+      </p>
+
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -317,19 +513,36 @@ export function PlaceBetPanel({
           )}
           Simulate
         </Button>
-        <Button
-          onClick={placeBet}
-          disabled={phase !== "sim-ok" && phase !== "send-err"}
-          className="flex-1"
-        >
-          {phase === "sending" ? (
-            <LoaderCircle className="animate-spin" />
-          ) : (
-            <Send />
-          )}
-          Place bet
-        </Button>
+        {/* Wrapper carries the not-allowed cursor: the disabled Button has
+            `pointer-events-none`, so the hover cursor must live on the parent. */}
+        <span className={cn("flex-1", !canPlace && "cursor-not-allowed")}>
+          <Button
+            onClick={placeBet}
+            disabled={!canPlace}
+            aria-disabled={!canPlace}
+            className={cn(
+              "w-full",
+              // Make "disabled" unmistakable — the solid purple looked clickable and
+              // cost three failed attempts.
+              !canPlace && "opacity-40 saturate-50",
+            )}
+          >
+            {phase === "sending" ? (
+              <LoaderCircle className="animate-spin" />
+            ) : (
+              <Send />
+            )}
+            Place bet
+          </Button>
+        </span>
       </div>
+      {!canPlace && phase !== "sending" && (
+        <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Info className="size-3.5 shrink-0" />
+          Run <span className="font-medium text-foreground">Simulate</span> first — it
+          checks the bet against the program before you can sign.
+        </p>
+      )}
 
       {/* result */}
       {message && (

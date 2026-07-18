@@ -5,11 +5,17 @@ import { ExternalLink, ShieldCheck } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MarketSummary, predicateLabel } from "@/components/settlement/market-summary";
+import {
+  fixtureHeadline,
+  MarketSummary,
+} from "@/components/settlement/market-summary";
 import { MerkleProofViewer } from "@/components/settlement/merkle-proof-viewer";
 import { SettlementActivity } from "@/components/settlement/settlement-activity";
 import { PlaceBetPanel } from "@/components/settlement/place-bet-panel";
 import { useMarkets } from "@/hooks/use-markets";
+import { useFixtureParticipants } from "@/hooks/use-fixture-participants";
+import { predicateHeadline } from "@/lib/solana/predicate";
+import { formatSol } from "@/lib/format";
 import { DATA_MODE, explorerTx, getNetworkConfig } from "@/lib/solana/config";
 import {
   fetchMarketTransactions,
@@ -22,10 +28,19 @@ import { cn } from "@/lib/utils";
 export function SettlementView() {
   const config = getNetworkConfig(DATA_MODE);
   const { markets, loading } = useMarkets();
+  const { lookup: participantsFor } = useFixtureParticipants();
   // The featured markets are whatever the program actually owns on chain (a settled one for
-  // the proof, an open one to stake against), not a hardcoded list — so the page can only
-  // ever show markets that exist.
-  const featured = useMemo(() => selectFeatured(markets, 2), [markets]);
+  // the proof, open ones on distinct matches to stake against), not a hardcoded list — so the
+  // page can only ever show markets that exist. The capture's kickoff times rank the open
+  // matches newest-first; markets on fixtures the capture doesn't know sort last.
+  const featured = useMemo(
+    () =>
+      selectFeatured(markets, 3, (fixtureId) => {
+        const kickoffMs = participantsFor(fixtureId)?.kickoffMs;
+        return kickoffMs != null ? { kickoffMs } : null;
+      }),
+    [markets, participantsFor],
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const selected = picked ?? featured[0]?.address ?? null;
   const openFeatured = featured.find((m) => m.state !== "Settled") ?? null;
@@ -68,26 +83,49 @@ export function SettlementView() {
           {featured.map((m) => {
             const addr = m.address;
             const active = addr === selected;
+            const parts = participantsFor(m.fixtureId);
+            const isSettled = m.state === "Settled";
             return (
               <button
                 key={addr}
                 onClick={() => setPicked(addr)}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors cursor-pointer",
+                  "flex min-w-[13rem] flex-1 flex-col gap-1.5 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer",
                   active
                     ? "border-primary/40 bg-primary/5"
                     : "border-border/70 hover:bg-secondary",
                 )}
               >
-                <span
-                  className={cn(
-                    "size-2 rounded-full",
-                    active ? "bg-primary" : "bg-muted-foreground/40",
-                  )}
-                />
-                <span className="font-medium">{`Fixture ${m.fixtureId}`}</span>
-                <span className="text-xs text-muted-foreground">
-                  {predicateLabel(m)}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "size-2 rounded-full",
+                        active ? "bg-primary" : "bg-muted-foreground/40",
+                      )}
+                    />
+                    <span className="text-sm font-medium">
+                      {fixtureHeadline(m, parts)}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                      isSettled
+                        ? "bg-yes/10 text-yes"
+                        : "bg-accent/10 text-accent",
+                    )}
+                  >
+                    {isSettled ? "Settled" : "Open"}
+                  </span>
+                </span>
+                <span className="flex items-center justify-between gap-2 pl-4">
+                  <span className="text-xs text-muted-foreground">
+                    {predicateHeadline(m, parts)}
+                  </span>
+                  <span className="tabular text-xs font-medium text-gold">
+                    {formatSol(m.potLamports)} SOL
+                  </span>
                 </span>
               </button>
             );
@@ -117,7 +155,11 @@ export function SettlementView() {
           <Card>
             <CardContent>
               {market ? (
-                <MarketSummary market={market} cluster={config.explorerCluster} />
+                <MarketSummary
+                  market={market}
+                  participants={participantsFor(market.fixtureId)}
+                  cluster={config.explorerCluster}
+                />
               ) : loading ? (
                 <div className="flex flex-col gap-3">
                   <Skeleton className="h-8 w-40" />
@@ -139,8 +181,10 @@ export function SettlementView() {
                   <p className="mb-4 rounded-lg bg-secondary/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
                     The market shown left is already settled, so this bet targets the open
                     market on chain —{" "}
-                    <span className="text-foreground">{`Fixture ${betMarket.fixtureId}`}</span>
-                    , {predicateLabel(betMarket)}.
+                    <span className="text-foreground">
+                      {fixtureHeadline(betMarket, participantsFor(betMarket.fixtureId))}
+                    </span>
+                    , {predicateHeadline(betMarket, participantsFor(betMarket.fixtureId))}.
                   </p>
                 )}
                 {!openFeatured && (
@@ -153,6 +197,7 @@ export function SettlementView() {
                 )}
                 <PlaceBetPanel
                   market={betMarket}
+                  participants={participantsFor(betMarket.fixtureId)}
                   cluster={config.explorerCluster}
                 />
               </CardContent>
@@ -166,7 +211,11 @@ export function SettlementView() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <p className="eyebrow mb-6 text-primary">The proof</p>
           <MerkleProofViewer
-            predicateLabel={market ? predicateLabel(market) : null}
+            predicateLabel={
+              market
+                ? predicateHeadline(market, participantsFor(market.fixtureId))
+                : null
+            }
             winner={market && market.state === "Settled" ? market.winner : null}
           />
         </div>

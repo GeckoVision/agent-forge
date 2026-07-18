@@ -66,7 +66,7 @@ function MarketRow({ market }: { market: MarketAccount }) {
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">
-            Fixture {market.fixtureId.toString()}
+            Match #{market.fixtureId.toString()}
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {predicateLabel(market)}

@@ -50,7 +50,7 @@ function StatCallout({ market }: { market: MarketAccount }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="eyebrow text-gold">
-            Fixture {market.fixtureId.toString()}
+            Match #{market.fixtureId.toString()}
           </span>
           <span className="font-mono text-base font-semibold tracking-tight text-foreground">
             {predicateLabel(market)}

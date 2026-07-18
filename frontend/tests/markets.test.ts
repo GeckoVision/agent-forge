@@ -233,6 +233,74 @@ describe("selectFeatured / findAllByFixture", () => {
     expect(selectFeatured(markets, 2).map((m) => m.address)).toEqual(["o1", "o2"]);
   });
 
+  it("prefers open markets on DISTINCT matches, so a new match's fresh market surfaces", () => {
+    // Two markets exist on the France match (with pots) and two brand-new pot-0 markets on
+    // the next match. Pure pot-desc ordering would bury the new match under France's second
+    // market — the distinct-match rule features one open market per match instead.
+    const markets = [
+      market("settled", 1n, 1, "Settled", 900n),
+      market("france-1", 2n, 1, "Open", 500n),
+      market("france-2", 2n, 2, "Open", 400n),
+      market("next-1", 3n, 1, "Open", 0n),
+      market("next-2", 3n, 2, "Open", 0n),
+    ];
+    expect(selectFeatured(markets, 3).map((m) => m.address)).toEqual([
+      "settled",
+      "france-1",
+      "next-1",
+    ]);
+  });
+
+  it("ranks distinct open matches by kickoff (newest first) when a schedule is known", () => {
+    // Mirrors the real devnet shape: a rich-pot market on a match played weeks ago must not
+    // bury the matches happening now/next, and a synthetic demo market (no schedule) goes last
+    // however it sorts by pot.
+    const markets = [
+      market("settled", 1n, 1, "Settled", 900n),
+      market("today-big", 2n, 1, "Open", 15_000_000n),
+      market("today-b", 2n, 2, "Open", 10_000_000n),
+      market("weeks-ago-rich", 3n, 1, "Open", 10_000_000n),
+      market("tomorrow-fresh", 4n, 1, "Open", 0n),
+      market("demo-open", 5n, 1, "Open", 0n),
+    ];
+    const kickoff: Record<string, number> = { "2": 100, "3": 10, "4": 200 }; // 5 unknown
+    const schedule = (fixtureId: bigint) => {
+      const ms = kickoff[fixtureId.toString()];
+      return ms === undefined ? null : { kickoffMs: ms };
+    };
+    expect(selectFeatured(markets, 4, schedule).map((m) => m.address)).toEqual([
+      "settled",
+      "tomorrow-fresh",
+      "today-big",
+      "weeks-ago-rich",
+    ]);
+    // without a schedule the old pot-desc order still holds (pot-0 tie → address order)
+    expect(selectFeatured(markets, 4).map((m) => m.address)).toEqual([
+      "settled",
+      "today-big",
+      "weeks-ago-rich",
+      "demo-open",
+    ]);
+  });
+
+  it("breaks pot ties deterministically by stat key", () => {
+    // Both pot 0 — the lower stat key wins regardless of input order.
+    const markets = [
+      market("stat2", 3n, 2, "Open", 0n),
+      market("stat1", 3n, 1, "Open", 0n),
+    ];
+    expect(selectFeatured(markets, 1).map((m) => m.address)).toEqual(["stat1"]);
+  });
+
+  it("backfills with same-match opens when no other match exists — never drops a slot", () => {
+    const markets = [
+      market("s", 1n, 1, "Settled", 1n),
+      market("o1", 2n, 1, "Open", 5n),
+      market("o2", 2n, 2, "Open", 4n),
+    ];
+    expect(selectFeatured(markets, 3).map((m) => m.address)).toEqual(["s", "o1", "o2"]);
+  });
+
   it("never pads when only one state is present or the chain holds fewer than count", () => {
     expect(selectFeatured([market("s", 1n, 1, "Settled", 5n)], 2)).toHaveLength(1);
     expect(selectFeatured([market("o", 1n, 1, "Open", 5n)], 2)).toHaveLength(1);

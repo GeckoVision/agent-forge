@@ -75,35 +75,85 @@ export async function fetchMarkets(
   });
 }
 
+/** The one piece of match metadata featuring cares about: when the match kicks off. */
+export interface FixtureSchedule {
+  kickoffMs: number;
+}
+
+/**
+ * Resolve a market's fixture to its schedule, or `null` when the fixture is unknown to the
+ * capture (synthetic/demo test markets can never resolve).
+ */
+export type FixtureScheduleLookup = (fixtureId: bigint) => FixtureSchedule | null;
+
 /**
  * The markets to feature, chosen from what is actually on chain.
  *
- * Spans both market states on purpose: the page tells two stories that need two different
- * markets — a Settled one has the Merkle proof to show, and only an Open one can accept a
- * stake. Taking the head of `fetchMarkets` blindly would feature two settled markets and
- * leave every bet fail-closed with `MarketNotOpen`. Within each state the biggest pot wins,
- * as the most substantive record of that story. When the chain holds only one state (or
- * fewer markets than asked for) it returns what exists — it never pads the list, and never
- * invents a market the program does not own.
+ * The rule, in priority order:
+ *
+ *   1. Lead with the top-pot SETTLED market — it carries the Merkle proof, the page's
+ *      centrepiece story.
+ *   2. Fill the remaining slots with OPEN markets on DISTINCT matches (top pot per match).
+ *      One match can hold several markets (the PDA is per (fixture, stat)); featuring two
+ *      of them would bury the next match's brand-new (pot 0) market, which is exactly the
+ *      market a visitor can still meaningfully bet on.
+ *      When a schedule lookup is provided, distinct matches are ordered by kickoff, newest
+ *      first — the matches happening now/next are the ones a viewer can still care about,
+ *      while a big-pot market on a match played weeks ago is stale however rich it is.
+ *      Matches with no known schedule (synthetic/demo markets) sort last, by pot.
+ *   3. Backfill with whatever else exists — remaining settled, then the same-match opens
+ *      that step 2 deduplicated away.
+ *
+ * Ties (e.g. two fresh pot-0 markets on one match) break deterministically by stat key,
+ * then address. It never pads the list and never invents a market the program does not own.
  */
 export function selectFeatured(
   markets: MarketAccount[] | null,
   count = 2,
+  schedule?: FixtureScheduleLookup,
 ): MarketAccount[] {
-  const byPot = [...(markets ?? [])].sort((a, b) =>
-    Number(b.potLamports - a.potLamports),
+  const byPot = [...(markets ?? [])].sort(
+    (a, b) =>
+      Number(b.potLamports - a.potLamports) ||
+      a.statKey - b.statKey ||
+      a.address.localeCompare(b.address),
   );
-  // Settled queue first so featured[0] still leads with the proof story.
-  const queues = [
-    byPot.filter((m) => m.state === "Settled"),
-    byPot.filter((m) => m.state !== "Settled"),
-  ];
+  const settled = byPot.filter((m) => m.state === "Settled");
+
+  // Open markets, one per match — the rest are kept aside as backfill, not dropped.
+  const openPerFixture: MarketAccount[] = [];
+  const openDuplicates: MarketAccount[] = [];
+  const seenFixtures = new Set<string>();
+  for (const m of byPot) {
+    if (m.state === "Settled") continue;
+    const key = m.fixtureId.toString();
+    if (seenFixtures.has(key)) {
+      openDuplicates.push(m);
+    } else {
+      seenFixtures.add(key);
+      openPerFixture.push(m);
+    }
+  }
+
+  // Freshest matches first; unknown-schedule (demo) matches keep their pot order, last.
+  if (schedule) {
+    openPerFixture.sort((a, b) => {
+      const ka = schedule(a.fixtureId)?.kickoffMs ?? null;
+      const kb = schedule(b.fixtureId)?.kickoffMs ?? null;
+      if (ka === null && kb === null) return 0; // stable sort keeps the pot order
+      if (ka === null) return 1;
+      if (kb === null) return -1;
+      return kb - ka;
+    });
+  }
 
   const featured: MarketAccount[] = [];
-  for (let i = 0; featured.length < count; i++) {
-    if (queues.every((q) => q.length === 0)) break;
-    const next = queues[i % queues.length].shift();
-    if (next) featured.push(next);
+  if (settled.length > 0 && count > 0) featured.push(settled[0]);
+  for (const queue of [openPerFixture, settled.slice(1), openDuplicates]) {
+    for (const m of queue) {
+      if (featured.length >= count) return featured;
+      featured.push(m);
+    }
   }
   return featured;
 }

@@ -39,7 +39,7 @@ export function PolicyPanel() {
       <div className="flex flex-col gap-2">
         <Row label="Total spend cap" value={`${POLICY.maxSpendSol} SOL`} />
         <Row label="Stake per bet" value={`${POLICY.stakePerBetSol} SOL`} />
-        <Row label="Max per fixture" value={`${POLICY.maxPerFixtureSol} SOL`} />
+        <Row label="Max per match" value={`${POLICY.maxPerFixtureSol} SOL`} />
       </div>
 
       <div className="flex flex-col gap-2">

@@ -5,15 +5,37 @@ import { CircleCheck, CircleDot } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ExplorerLink } from "@/components/shared/explorer-link";
 import type { ExplorerCluster } from "@/lib/solana/config";
+import { type MarketAccount } from "@/lib/solana/forge-client";
 import {
-  COMPARISON_SYMBOL,
-  type MarketAccount,
-} from "@/lib/solana/forge-client";
+  describePredicate,
+  type FixtureParticipants,
+  technicalPredicate,
+} from "@/lib/solana/predicate";
 import { formatSol } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+/**
+ * The technical predicate — kept as the exported default so non-settlement surfaces (hero,
+ * track record, agent dashboard) that have no participant names keep rendering the exact
+ * on-chain form. Settlement components pass participants and render the human sentence.
+ */
 export function predicateLabel(market: MarketAccount): string {
-  return `stat #${market.statKey} ${COMPARISON_SYMBOL[market.predicate.comparison]} ${market.predicate.threshold}`;
+  return technicalPredicate(market);
+}
+
+/**
+ * Teams as a headline ("France vs England"). When no team names resolve the market is not a
+ * real capture match — test markets use synthetic ids offset from real ones, so nothing in the
+ * fixtures data can or should ever name them. "Demo market" is the honest label; teams are
+ * never invented.
+ */
+export function fixtureHeadline(
+  market: MarketAccount,
+  participants: FixtureParticipants | null | undefined,
+): string {
+  return participants
+    ? `${participants.participant1} vs ${participants.participant2}`
+    : `Demo market #${market.fixtureId.toString()}`;
 }
 
 function StakeBar({ market }: { market: MarketAccount }) {
@@ -54,22 +76,32 @@ function StakeBar({ market }: { market: MarketAccount }) {
 
 export function MarketSummary({
   market,
+  participants,
   cluster = "devnet",
 }: {
   market: MarketAccount;
+  participants?: FixtureParticipants | null;
   cluster?: ExplorerCluster;
 }) {
   const settled = market.state === "Settled";
+  const { human, technical } = describePredicate(market, participants);
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Fixture {market.fixtureId.toString()}
+            {fixtureHeadline(market, participants)}
           </span>
-          <span className="font-mono text-xl font-semibold tracking-tight">
-            {predicateLabel(market)}
+          {/* Lead with the plain-language bet; keep the exact on-chain predicate as the
+              technical subtitle so nothing is hidden. */}
+          <span className="text-xl font-semibold tracking-tight">
+            {human ?? technical}
           </span>
+          {human && (
+            <span className="font-mono text-xs text-muted-foreground">
+              {technical} · match #{market.fixtureId.toString()}
+            </span>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1.5">
           {settled ? (

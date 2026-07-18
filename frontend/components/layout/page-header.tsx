@@ -8,7 +8,8 @@ export function PageHeader({
 }: {
   eyebrow: string;
   title: string;
-  description?: string;
+  /** A string, or a node when a page needs styled copy (e.g. a dimmed technical footnote). */
+  description?: React.ReactNode;
   className?: string;
 }) {
   return (
