@@ -13,6 +13,7 @@ import {
 } from "@/components/settlement/market-summary";
 import { MerkleProofViewer } from "@/components/settlement/merkle-proof-viewer";
 import { SettlementActivity } from "@/components/settlement/settlement-activity";
+import { ClaimPanel } from "@/components/settlement/claim-panel";
 import { OpenMarketPanel } from "@/components/settlement/open-market-panel";
 import { PlaceBetPanel } from "@/components/settlement/place-bet-panel";
 import { useMarkets } from "@/hooks/use-markets";
@@ -214,6 +215,16 @@ export function SettlementView() {
               />
             </CardContent>
           </Card>
+        )}
+
+        {/* your payout on a settled market — renders only when this wallet holds a
+            position here; the winning browser staker's missing claim path */}
+        {market?.state === "Settled" && (
+          <ClaimPanel
+            market={market}
+            participants={participantsFor(market.fixtureId)}
+            cluster={config.explorerCluster}
+          />
         )}
 
         {/* live market + place a bet */}

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExplorerLink } from "@/components/shared/explorer-link";
 import { predicateLabel } from "@/components/settlement/market-summary";
+import { WalletPnl } from "@/components/track/wallet-pnl";
 import { useMarkets } from "@/hooks/use-markets";
 import { DATA_MODE, getNetworkConfig } from "@/lib/solana/config";
 import type { MarketAccount } from "@/lib/solana/forge-client";
@@ -142,6 +143,9 @@ export function TrackRecord() {
           loading={loading}
         />
       </div>
+
+      {/* the connected wallet's own P&L — shares this component's market fetch */}
+      <WalletPnl markets={markets} marketsLoading={loading} />
 
       <div className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">

@@ -8,6 +8,7 @@ import {
   fetchMarketTransactions,
   fetchMarkets,
   fetchPositions,
+  fetchWalletPositions,
   findAllByFixture,
   findSettleTx,
   selectFeatured,
@@ -117,6 +118,47 @@ describe("fetchPositions", () => {
   it("returns [] when the scan is rate-limited", async () => {
     const conn = fakeConn({ getProgramAccounts: RATE_LIMIT });
     await expect(fetchPositions(MARKET_ADDRESS, "devnet", conn)).resolves.toEqual([]);
+  });
+});
+
+describe("fetchWalletPositions", () => {
+  const OWNER = "G4miHrpWdyZwB5WJSDQVyeb1Q7XGA2FPFBAKmCaEWYro"; // the fixture position's owner
+
+  it("scans by Position size + owner memcmp at offset 40 (disc 8 + market 32)", async () => {
+    let seenFilters: unknown;
+    const conn = fakeConn({
+      getProgramAccounts: async (_pid: unknown, cfg: { filters: unknown }) => {
+        seenFilters = cfg.filters;
+        return [
+          { pubkey: new PublicKey(MARKET_ADDRESS), account: { data: POSITION_DATA } },
+        ];
+      },
+    });
+    const positions = await fetchWalletPositions(OWNER, "devnet", conn);
+    expect(seenFilters).toEqual([
+      { dataSize: 99 },
+      { memcmp: { offset: 40, bytes: OWNER } },
+    ]);
+    expect(positions).toHaveLength(1);
+    expect(positions![0].owner).toBe(OWNER);
+    expect(positions![0].amount).toBe(5_000_000n);
+  });
+
+  it("returns null (NOT []) when the scan is rate-limited — the caller must say so", async () => {
+    // [] would read as "no bets yet", which is a lie when the RPC refused the scan.
+    const conn = fakeConn({ getProgramAccounts: RATE_LIMIT });
+    await expect(fetchWalletPositions(OWNER, "devnet", conn)).resolves.toBeNull();
+  });
+
+  it("skips accounts that fail to decode rather than failing the whole scan", async () => {
+    const conn = fakeConn({
+      getProgramAccounts: async () => [
+        { pubkey: new PublicKey(MARKET_ADDRESS), account: { data: new Uint8Array(10) } },
+        { pubkey: new PublicKey(MARKET_ADDRESS), account: { data: POSITION_DATA } },
+      ],
+    });
+    const positions = await fetchWalletPositions(OWNER, "devnet", conn);
+    expect(positions).toHaveLength(1);
   });
 });
 

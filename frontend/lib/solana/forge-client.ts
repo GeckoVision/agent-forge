@@ -15,8 +15,9 @@ import { FORGE_PROGRAM_ID } from "./config";
  * PDA derivations — and decodes the public on-chain `Market`/`Position` state.
  * The program is frozen; this file mirrors its wire format as DATA.
  *
- * Only the read + `stake` + `create_market` paths are ported here (what the web
- * surface needs); settle/claim stay server-side in the backend.
+ * The read + `stake` + `create_market` + `claim` paths are ported here (what the
+ * web surface needs — browser stakers place bets AND collect payouts); `settle`
+ * stays server-side in the backend (it carries the oracle proof).
  */
 
 export type Side = "Yes" | "No";
@@ -267,6 +268,41 @@ export function buildCreateMarketIx(params: {
   });
 
   return { instruction, market, vault };
+}
+
+/**
+ * Build the `claim` instruction — a winning staker withdraws their pro-rata share.
+ * Layout cross-checked against BOTH the backend (`build_claim_ix`) and the Rust
+ * context (`instructions/claim.rs::Claim`), which agree. Account order MUST match
+ * `#[derive(Accounts)] Claim`:
+ *   market (r), position (w), vault (w), staker (signer, w), system (r).
+ * The market is READ-ONLY here (unlike stake): claim only reads the settled state;
+ * lamports leave the vault, and the position's `claimed` flag flips.
+ * data = disc("claim") — the instruction takes no args.
+ */
+export function buildClaimIx(params: {
+  fixtureId: bigint;
+  statKey: number;
+  staker: PublicKey;
+}): { instruction: TransactionInstruction; market: PublicKey; position: PublicKey; vault: PublicKey } {
+  const { fixtureId, statKey, staker } = params;
+  const [market] = marketPda(fixtureId, statKey);
+  const [vault] = vaultPda(market);
+  const [position] = positionPda(market, staker);
+
+  const instruction = new TransactionInstruction({
+    programId: FORGE_PROGRAM_ID,
+    keys: [
+      { pubkey: market, isSigner: false, isWritable: false },
+      { pubkey: position, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: true },
+      { pubkey: staker, isSigner: true, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from(DISCRIMINATORS.claim),
+  });
+
+  return { instruction, market, position, vault };
 }
 
 /** Map an Anchor custom-error code from a simulation into its program error name. */

@@ -204,6 +204,43 @@ export async function fetchPositions(
   }
 }
 
+// ── every position a wallet holds, across ALL markets of the program ─────────────
+/**
+ * Scan the program for this wallet's `Position` accounts: same dataSize filter as
+ * the other scans plus an owner memcmp at offset 40 (8-byte discriminator + 32-byte
+ * market pubkey — see `decodePosition`'s field order).
+ *
+ * Returns `null` — NOT `[]` — when the scan itself fails (public devnet rate-limits
+ * `getProgramAccounts` heavily): an empty list means "this wallet has no bets",
+ * which the caller must never claim when the RPC simply refused to answer.
+ */
+export async function fetchWalletPositions(
+  owner: string,
+  mode: DataMode = "devnet",
+  conn: Connection = getConnection(mode),
+): Promise<PositionAccount[] | null> {
+  const config = getNetworkConfig(mode);
+  try {
+    const accounts = await conn.getProgramAccounts(config.forgeProgramId, {
+      filters: [
+        { dataSize: POSITION_ACCOUNT_SIZE },
+        { memcmp: { offset: 40, bytes: owner } },
+      ],
+    });
+    return accounts
+      .map(({ pubkey, account }) => {
+        try {
+          return decodePosition(pubkey.toBase58(), account.data);
+        } catch {
+          return null;
+        }
+      })
+      .filter((p): p is PositionAccount => p !== null);
+  } catch {
+    return null;
+  }
+}
+
 // ── transaction history for a market (create → stake → settle → claim) ───────────
 export type MarketTxKind =
   | "create_market"
