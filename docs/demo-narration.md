@@ -81,6 +81,29 @@ the proof it's real.*
 
 ---
 
+## Beat 4.5 — And you can do it yourself (1:20–1:35)
+
+> "You don't have to hand it to an agent, either. This is a match being played
+> right now. Pick a side, pick an amount, and the bet goes straight on chain —
+> into the program, not into an account we control.
+>
+> Fifteen thousandths of a coin in the pot. Ours is the five."
+
+*On screen: the settlement page, wallet connect, YES / 0.005 SOL, Simulate going
+green, Place bet, then the explorer tab loading the confirmed transaction.*
+
+> ⚠️ **This beat is a HUMAN placing a bet. Beat 4 is the AGENT placing one.**
+> They are different transactions and different claims — do not let the edit
+> imply the agent did this, or that a human approved the agent's stake. Keep
+> "no human approves this" (beat 4) away from this footage.
+
+**Claim check:** tx `48w3m9zs…Wpnb`, confirmed devnet 2026-07-18T21:13:45Z,
+`err=None`. Stake 0.005 SOL → vault `3t5ogg…re6f`. Market `4TuMHk…` pot moved
+0.0100 → **0.0150 SOL**, still `Open`. Fixture 18257865, kickoff 21:00Z — the
+match was **in progress** when this was placed. ✅
+
+---
+
 ## Beat 5 — Nobody can interfere with the payout (1:20–1:40)
 
 > "Ecuador wins, two-one.

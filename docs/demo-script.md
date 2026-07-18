@@ -150,3 +150,37 @@ oracle CPI = `txoracle::validate_stat`. No HTTP API exists between the two repos
 - [x] Stale UI/comment text corrected (fixture counts now 102/106 available, 56 settled)
 - [ ] `/agent` renders with `MONGODB_URI` set — **founder confirms locally**
 - [ ] Explorer tx loads live on camera (do not cut the load)
+
+---
+
+## SHOT LIST — capture order (2026-07-18)
+
+Capture in this order; it front-loads the perishable material. Fixture 18257865
+(France v England) kicked off 21:00Z today, so the "match in progress" framing
+has a shelf life — get beat 4.5 first.
+
+| # | Beat | Where | Who captures |
+|---|---|---|---|
+| 1 | **4.5 — a human bets on a live match** | `/settlement`, wallet on **devnet** | founder (browser) |
+| 2 | 4 — the agent stakes autonomously | terminal, already recorded | ✅ done |
+| 3 | 2/3 — odds chart + flagged move | `/agent` | founder (browser) |
+| 4 | 5 — settlement + Merkle proof | `/settlement` proof viewer | founder (browser) |
+| 5 | 5.5 — architecture | the mermaid diagram above | designer |
+
+**Beat 4.5 exact steps** (this is the one that just worked):
+1. Wallet set to **Devnet** — verify before recording. Pointing at mainnet cost
+   us three failed attempts and produced signatures that existed on no cluster.
+2. `/settlement` → the featured open market is `4TuMHk…` (fixture 18257865).
+3. YES · 0.005 SOL → **Simulate** (must go green) → **Place bet**.
+4. Let the explorer tab load on camera. Do not cut the wait.
+
+**Already-verified assets — no re-capture needed:**
+- Terminal hero: `sharp-detector/demo/demo_hero.cast` + `.gif`
+- Agent's autonomous stake: `62SYrYer…vjZe`, slot 477090495
+- Tonight's human stake: `48w3m9zs…Wpnb`, 21:13:45Z, pot 0.0100 → 0.0150
+
+**Known UI issues to avoid on camera** (fixes pending on PR #6):
+- The disabled "Place bet" looks identical to the enabled one.
+- A 30s confirm timeout is reported as "Bet submitted" — it may not have been
+  broadcast at all. Don't film a timeout and call it a success.
+- The panel doesn't show which network the wallet is on.
