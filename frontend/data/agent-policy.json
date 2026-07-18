@@ -1,0 +1,19 @@
+{
+  "source": "gorilla.staking.chain_policy + gorilla.watch defaults",
+  "generatedAt": "2026-07-18T15:05:01+00:00",
+  "maxSpendSol": 0.05,
+  "stakePerBetSol": 0.01,
+  "maxPerFixtureSol": 0.02,
+  "allow": [
+    {
+      "purpose": "create-market",
+      "programId": "7Pvo6SEh1zBa1Euvj5QQ4td9GpfsQosTpxhqwWtWUFt6",
+      "instruction": "create_market"
+    },
+    {
+      "purpose": "place-bet",
+      "programId": "7Pvo6SEh1zBa1Euvj5QQ4td9GpfsQosTpxhqwWtWUFt6",
+      "instruction": "stake"
+    }
+  ]
+}

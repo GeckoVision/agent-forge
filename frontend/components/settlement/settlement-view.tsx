@@ -10,39 +10,35 @@ import { MerkleProofViewer } from "@/components/settlement/merkle-proof-viewer";
 import { SettlementActivity } from "@/components/settlement/settlement-activity";
 import { PlaceBetPanel } from "@/components/settlement/place-bet-panel";
 import { useMarkets } from "@/hooks/use-markets";
-import {
-  DATA_MODE,
-  explorerTx,
-  FEATURED_MARKETS,
-  getNetworkConfig,
-} from "@/lib/solana/config";
+import { DATA_MODE, explorerTx, getNetworkConfig } from "@/lib/solana/config";
 import {
   fetchMarketTransactions,
   findSettleTx,
+  selectFeatured,
   type MarketTx,
 } from "@/lib/solana/markets";
-import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function SettlementView() {
   const config = getNetworkConfig(DATA_MODE);
   const { markets, loading } = useMarkets();
-  const [selected, setSelected] = useState<string>(FEATURED_MARKETS[0]);
+  // The featured markets are whatever the program actually owns on chain (settled first),
+  // not a hardcoded list — so the page can only ever show markets that exist.
+  const featured = useMemo(() => selectFeatured(markets, 2), [markets]);
+  const [picked, setPicked] = useState<string | null>(null);
+  const selected = picked ?? featured[0]?.address ?? null;
+
   // Keyed by address so a stale result for a previously-selected market is
   // detectable during render (no synchronous reset inside the effect).
   const [txState, setTxState] = useState<{
-    address: string;
+    address: string | null;
     txs: MarketTx[] | null;
-  }>({ address: FEATURED_MARKETS[0], txs: null });
-
-  const featured = useMemo(() => {
-    const set = new Set<string>(FEATURED_MARKETS);
-    return (markets ?? []).filter((m) => set.has(m.address));
-  }, [markets]);
+  }>({ address: null, txs: null });
 
   const market = featured.find((m) => m.address === selected) ?? null;
 
   useEffect(() => {
+    if (!selected) return;
     let alive = true;
     fetchMarketTransactions(selected, config, 10)
       .then((t) => alive && setTxState({ address: selected, txs: t }))
@@ -62,13 +58,13 @@ export function SettlementView() {
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         {/* market selector */}
         <div className="flex flex-wrap items-center gap-2">
-          {FEATURED_MARKETS.map((addr) => {
-            const m = featured.find((x) => x.address === addr);
+          {featured.map((m) => {
+            const addr = m.address;
             const active = addr === selected;
             return (
               <button
                 key={addr}
-                onClick={() => setSelected(addr)}
+                onClick={() => setPicked(addr)}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors cursor-pointer",
                   active
@@ -82,17 +78,19 @@ export function SettlementView() {
                     active ? "bg-primary" : "bg-muted-foreground/40",
                   )}
                 />
-                <span className="font-medium">
-                  {m ? `Fixture ${m.fixtureId}` : shortAddress(addr)}
+                <span className="font-medium">{`Fixture ${m.fixtureId}`}</span>
+                <span className="text-xs text-muted-foreground">
+                  {predicateLabel(m)}
                 </span>
-                {m && (
-                  <span className="text-xs text-muted-foreground">
-                    {predicateLabel(m)}
-                  </span>
-                )}
               </button>
             );
           })}
+          {featured.length === 0 && !loading && (
+            <p className="text-sm text-muted-foreground">
+              No markets could be read from devnet right now — the public RPC may
+              be rate-limiting the program scan.
+            </p>
+          )}
           {settleTx && (
             <a
               href={explorerTx(settleTx.signature, config.explorerCluster)}
@@ -142,8 +140,8 @@ export function SettlementView() {
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <p className="eyebrow mb-6 text-primary">The proof</p>
           <MerkleProofViewer
-            predicateLabel={market ? predicateLabel(market) : "stat #1 > 0"}
-            winner={market?.winner ?? "Yes"}
+            predicateLabel={market ? predicateLabel(market) : null}
+            winner={market && market.state === "Settled" ? market.winner : null}
           />
         </div>
       </section>

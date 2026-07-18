@@ -1,17 +1,25 @@
-"""The signal-first ``watch`` CLI — streams sharp-move signals, offline and deterministic.
+"""The signal-first ``watch`` CLI — the signal loop, exercised offline and deterministically.
 
-No network: the recorded stream is pure scripting and the live poller is exercised through an
+No network: the scripted stream is pure synthesis and the live poller is exercised through an
 injected fake feed + sleep (Pattern B). The signal is the hero; ``--act`` is the secondary
 custody-gated layer. ``main`` routes ``demo`` (default) vs ``watch`` without breaking the demo.
+
+NOTE the scripted stream and the ``SandboxExecutor`` used here are TEST fixtures, not the
+operating mode: a live ``watch`` run reads the real TxLINE feed and signs with a real devnet
+key. These tests pin that the offline simulation still falsifies the loop.
 """
 
 from __future__ import annotations
 
+import argparse
 import io
+
+import pytest
 
 from gorilla.cli import main
 from gorilla.detector import OddsSnapshot, PriceQuote, SharpMove
 from gorilla.watch import (
+    SandboxExecutor,
     WatchSummary,
     format_signal,
     live_stream,
@@ -21,8 +29,10 @@ from gorilla.watch import (
 
 
 def _run(**kwargs: object) -> tuple[str, WatchSummary]:
-    """Run ``run_watch`` over the recorded stream into a buffer; return (output, summary)."""
+    """Run ``run_watch`` over the scripted stream into a buffer; return (output, summary)."""
     buf = io.StringIO()
+    if kwargs.get("act") and "executor" not in kwargs:
+        kwargs["executor"] = SandboxExecutor.build()
     summary = run_watch(recorded_stream(), out=buf, **kwargs)  # type: ignore[arg-type]
     return buf.getvalue(), summary
 
@@ -79,32 +89,73 @@ def test_high_threshold_flags_nothing():
     assert summary.signals == 0 and summary.readings == 24
 
 
-def test_main_recorded_returns_zero_and_prints_header_and_signals():
+def test_main_offline_returns_zero_and_prints_header_and_signals():
     buf = io.StringIO()
-    code = main(["watch"], out=buf)
+    code = main(["watch", "--offline"], out=buf)
     text = buf.getvalue()
     assert code == 0
     assert "Gorilla" in text
-    assert "$0 · no key · no network" in text
+    assert "SYNTHETIC" in text  # the scripted source is labelled as synthetic, never as market data
     assert "SHARP" in text
     assert "sharp move(s) flagged from" in text
 
 
-def test_main_bare_invocation_runs_the_demo_not_watch(capsys):
-    """A bare ``python -m gorilla`` (no subcommand) still runs the offline demo — the original
-    behavior is preserved, and ``watch`` is purely additive."""
-    assert main([]) == 0
+def test_explicit_demo_runs_the_synthetic_smoke_and_says_so(capsys):
+    """The offline smoke survives (Pattern B) but must announce that it is synthetic and point
+    at the real path — it is no longer what a bare invocation gives you."""
+    assert main(["demo"]) == 0
     out = capsys.readouterr().out
-    assert "Gorilla Markets — offline agent core" in out  # the demo banner
-    assert "SHARP" not in out  # not the watch stream
+    assert "SYNTHETIC offline core" in out
+    assert "NOT market data, NOT transactions" in out
+    assert "python -m gorilla watch" in out
 
 
-def test_main_act_flag_shows_custody_line():
+def test_bare_invocation_is_a_live_watch_not_the_synthetic_demo(monkeypatch):
+    """THE fake-by-default regression: a bare ``python -m gorilla`` must take the live path.
+
+    The live source is stubbed out (no network in a test) — what is asserted is the ROUTING:
+    a bare invocation lands in ``watch``, never in the synthetic demo."""
+    import gorilla.cli as cli
+
+    seen: dict[str, object] = {}
+
+    def fake_watch(args, *, out):
+        seen["command"] = args.command
+        seen["offline"] = args.offline
+        return 0
+
+    monkeypatch.setattr(cli, "run_watch_command", fake_watch)
+    assert main([], out=io.StringIO()) == 0
+    assert seen == {"command": "watch", "offline": False}
+
+
+def test_main_offline_act_flag_shows_sandbox_custody_line():
     buf = io.StringIO()
-    assert main(["watch", "--act"], out=buf) == 0
+    assert main(["watch", "--offline", "--act"], out=buf) == 0
     text = buf.getvalue()
-    assert "custody:" in text
+    assert "custody: SANDBOX" in text
     assert "signed within policy" in text
+    # A sandbox ref must be visibly NOT a transaction signature.
+    assert "sandbox ref (NOT a transaction)" in text
+
+
+def test_act_without_an_executor_is_refused_rather_than_silently_faked():
+    """The regression this whole change exists to prevent: ``act`` must never fall back to a
+    fake wallet by default. No executor -> a loud error, not a sandbox signature."""
+    with pytest.raises(ValueError, match="requires an explicit executor"):
+        run_watch(recorded_stream(), act=True, out=io.StringIO())
+
+
+def test_watch_defaults_to_live_not_offline():
+    """Live is the operating mode: the parser's default must be live, with offline opt-in."""
+    parser = argparse.ArgumentParser()
+    from gorilla.watch import add_watch_arguments
+
+    add_watch_arguments(parser)
+    args = parser.parse_args([])
+    assert args.offline is False
+    assert args.history is False
+    assert args.fixture is None  # discovered from the live World Cup fixture list
 
 
 def test_live_stream_polls_via_injected_feed_without_network():

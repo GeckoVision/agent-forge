@@ -31,7 +31,7 @@ Two problems, both solved and proven on devnet:
 | Layer | Path | Role |
 |---|---|---|
 | On-chain | `program/` | `forge_markets` (Anchor 1.0): `create_market` / `stake` / `settle` / `claim`. `settle` CPIs the oracle; a bad proof reverts. |
-| Agent | `backend/gorilla/` | feed → detector → decision (risk policy) → policy-gated wallet → settle-by-proof → claim. One code path, recorded ($0) and live. |
+| Agent | `backend/gorilla/` | feed → detector → decision (risk policy) → policy-gated wallet → settle-by-proof → claim. Live by default; real captured history is the fallback. |
 | Frontend | `frontend/` | Next.js + shadcn/ui. The **Merkle-proof viewer** visualizes settlement: the proof folding up into TxODDS's committed on-chain root. |
 
 ## Deployed (devnet)
@@ -43,7 +43,13 @@ Two problems, both solved and proven on devnet:
 ## Run it
 
 ```bash
-cd backend && uv sync && uv run pytest        # 101 tests, offline, $0
-uv run python -m gorilla                   # the agent loop, recorded
+cd backend && uv sync && uv run pytest         # 169 tests, offline, $0
+uv run python -m gorilla                       # LIVE: real World Cup odds + real detector
+uv run python -m gorilla watch --act           # + a REAL policy-gated devnet stake
 cd ../frontend && pnpm install && pnpm dev     # the UI on devnet
 ```
+
+The live path needs a TxODDS session at `~/.gecko/txodds-session.json` and, for `--act`, a
+funded devnet keypair at `~/.gecko/wallets/gecko-dev.json` (override with
+`GORILLA_TXODDS_SESSION` / `GORILLA_DEVNET_KEYPAIR`). The captured-history fallback is
+located by `GORILLA_TXODDS_HISTORY`. **Devnet only** — a mainnet RPC is refused.

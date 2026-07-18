@@ -8,8 +8,11 @@ import {
   fetchMarketTransactions,
   fetchMarkets,
   fetchPositions,
+  findAllByFixture,
   findSettleTx,
+  selectFeatured,
 } from "@/lib/solana/markets";
+import type { MarketAccount } from "@/lib/solana/forge-client";
 import { DISCRIMINATORS } from "@/lib/solana/forge-client";
 import { FORGE_PROGRAM_ID, getNetworkConfig } from "@/lib/solana/config";
 import {
@@ -58,14 +61,13 @@ describe("fetchMarkets", () => {
     expect(markets[0].fixtureId).toBe(MARKET_EXPECTED.fixtureId);
   });
 
-  it("degrades to the featured fallback when the scan is rate-limited (no throw)", async () => {
+  it("degrades to the known-real fallback when the scan is rate-limited (no throw)", async () => {
     const conn = fakeConn({
       getProgramAccounts: RATE_LIMIT,
       getAccountInfo: async () => ({ data: MARKET_DATA }),
     });
     const markets = await fetchMarkets("devnet", conn);
-    // both curated featured markets are still guaranteed present
-    expect(markets.length).toBe(getNetworkConfig("devnet").featuredMarkets.length);
+    expect(markets.length).toBe(getNetworkConfig("devnet").fallbackMarkets.length);
   });
 
   it("resolves (never rejects) even if EVERYTHING rate-limits", async () => {
@@ -163,6 +165,37 @@ describe("fetchMarketTransactions", () => {
     const txs = await fetchMarketTransactions(MARKET_ADDRESS, config, 10, conn);
     expect(txs).toHaveLength(1);
     expect(txs[0].kind).toBe("other");
+  });
+});
+
+describe("selectFeatured / findAllByFixture", () => {
+  const market = (address: string, fixtureId: bigint, statKey = 1) =>
+    ({ address, fixtureId, statKey }) as MarketAccount;
+
+  it("features what is actually on chain, and never pads the list", () => {
+    const markets = [market("a", 1n), market("b", 2n)];
+    expect(selectFeatured(markets, 2).map((m) => m.address)).toEqual(["a", "b"]);
+    // one market on chain -> one featured, not a padded pair
+    expect(selectFeatured([market("a", 1n)], 2)).toHaveLength(1);
+  });
+
+  it("features nothing when the chain read failed", () => {
+    expect(selectFeatured(null, 2)).toEqual([]);
+  });
+
+  it("returns EVERY market for a fixture, so no real stake is silently dropped", () => {
+    // one fixture, two stats -> two real markets; picking one would hide the other
+    const markets = [
+      market("a", 1n),
+      market("stat2", 18257865n, 2),
+      market("stat1", 18257865n, 1),
+    ];
+    expect(findAllByFixture(markets, 18257865).map((m) => m.address)).toEqual([
+      "stat1",
+      "stat2",
+    ]);
+    expect(findAllByFixture(markets, 999)).toEqual([]);
+    expect(findAllByFixture(null, 1)).toEqual([]);
   });
 });
 

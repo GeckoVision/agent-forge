@@ -103,16 +103,42 @@ class ChainPolicy(Policy):
     bindings: Mapping[str, tuple[str, str]] = field(default_factory=dict)
 
 
+# Anchor allocates program errors from 6000 up, so a LOWER custom code on a forge_markets
+# transaction came from a CPI into a built-in — in practice the System Program. Naming the
+# common ones turns an opaque "custom 0" into the actual reason (that code is what a repeat
+# stake returns, because ``stake`` uses ``init`` and allows one position per staker per market).
+SYSTEM_PROGRAM_ERRORS: dict[int, str] = {
+    0: "AccountAlreadyInUse (the PDA being init'd already exists)",
+    1: "ResultWithNegativeLamports",
+    2: "InvalidProgramId",
+    3: "InvalidAccountDataLength",
+    4: "MaxSeedLengthExceeded",
+    5: "AddressWithSeedMismatch",
+    6: "NonceNoRecentBlockhashes",
+    7: "NonceBlockhashNotExpired",
+    8: "NonceUnexpectedBlockhashValue",
+}
+
+# Anchor's first program-defined error code.
+ANCHOR_ERROR_BASE = 6000
+
+
 def describe_tx_error(err: object) -> str:
-    """Render an RPC/simulation error, naming a forge_markets custom code (6000+) when present
-    (e.g. the fail-closed settle codes 6008/6009/6010)."""
+    """Render an RPC/simulation error, naming the custom code when present.
+
+    Codes at or above :data:`ANCHOR_ERROR_BASE` are forge_markets' own (e.g. the fail-closed
+    settle codes 6008/6009/6010); lower codes come from a CPI into the System Program and are
+    named from :data:`SYSTEM_PROGRAM_ERRORS`, so a caller never has to decode a bare integer."""
     try:
         if isinstance(err, dict):
             ie = err.get("InstructionError")
             if isinstance(ie, list) and len(ie) == 2 and isinstance(ie[1], dict):
                 code = ie[1].get("Custom")
                 if isinstance(code, int):
-                    name = SETTLEMENT_ERRORS.get(code, f"custom {code}")
+                    if code >= ANCHOR_ERROR_BASE:
+                        name = SETTLEMENT_ERRORS.get(code, f"custom {code}")
+                    else:
+                        name = SYSTEM_PROGRAM_ERRORS.get(code, f"system program error {code}")
                     return f"instruction {ie[0]}: {name} ({code})"
     except Exception:  # never let error-formatting mask the original failure
         pass

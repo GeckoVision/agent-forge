@@ -88,12 +88,17 @@ function RootLevel({
   );
 }
 
+/**
+ * `predicateLabel` / `winner` describe the market this proof settled. They are nullable on
+ * purpose: when the market cannot be read from the RPC the viewer says so rather than
+ * defaulting to a plausible-looking predicate or winner.
+ */
 export function MerkleProofViewer({
-  predicateLabel = "stat #1 > 0",
-  winner = "Yes",
+  predicateLabel = null,
+  winner = null,
 }: {
-  predicateLabel?: string;
-  winner?: string;
+  predicateLabel?: string | null;
+  winner?: string | null;
 }) {
   // resetKey remounts the ProofPaths to apply an expand/collapse-all; between
   // resets each path toggles on its own.
@@ -225,7 +230,9 @@ export function MerkleProofViewer({
               The oracle recomputes the leaf up the path and checks it equals its{" "}
               <span className="text-foreground">own committed root</span>, then
               evaluates the predicate{" "}
-              <span className="font-mono text-foreground">{predicateLabel}</span>{" "}
+              <span className="font-mono text-foreground">
+                {predicateLabel ?? "this market's predicate"}
+              </span>{" "}
               (value = {stat.value} → {predicateHolds ? "holds" : "fails"}) →{" "}
               <span className="font-mono text-primary">Ok(true)</span>.
             </span>
@@ -248,10 +255,14 @@ export function MerkleProofViewer({
 
       <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary/40 py-2.5 text-sm">
         <span className="text-muted-foreground">settle records</span>
-        <Badge variant="yes">
-          <CircleCheck className="size-3" />
-          winner = {winner}
-        </Badge>
+        {winner ? (
+          <Badge variant="yes">
+            <CircleCheck className="size-3" />
+            winner = {winner}
+          </Badge>
+        ) : (
+          <Badge variant="secondary">winner — market not read</Badge>
+        )}
         <span className="text-muted-foreground">— from the proof, nothing else.</span>
       </div>
     </div>

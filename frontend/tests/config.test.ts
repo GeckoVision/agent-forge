@@ -26,18 +26,18 @@ describe("explorer links", () => {
 });
 
 describe("getNetworkConfig", () => {
-  it("devnet is live with the two featured markets and the real program", () => {
+  it("devnet is live with the real program and a degraded-read fallback", () => {
     const c = getNetworkConfig("devnet");
     expect(c.live).toBe(true);
     expect(c.forgeProgramId.equals(FORGE_PROGRAM_ID)).toBe(true);
-    expect(c.featuredMarkets).toHaveLength(2);
+    expect(c.fallbackMarkets).toHaveLength(2);
     expect(c.explorerCluster).toBe("devnet");
   });
 
   it("mainnet-sim is the not-yet-live seam", () => {
     const c = getNetworkConfig("mainnet-sim");
     expect(c.live).toBe(false);
-    expect(c.featuredMarkets).toHaveLength(0);
+    expect(c.fallbackMarkets).toHaveLength(0);
   });
 });
 

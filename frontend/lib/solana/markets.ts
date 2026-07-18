@@ -31,8 +31,8 @@ export async function fetchMarket(
 /**
  * All `Market` accounts under the program (via `getProgramAccounts`, filtered by
  * byte size so no account discriminator is needed). If the bulk scan is
- * unavailable — public devnet 429s these heavily — it degrades to fetching the
- * curated featured markets individually, and always guarantees they are present.
+ * unavailable — public devnet 429s these heavily — it degrades to fetching a few
+ * known real markets individually so the UI still shows real on-chain state.
  */
 export async function fetchMarkets(
   mode: DataMode = "devnet",
@@ -56,9 +56,9 @@ export async function fetchMarkets(
     // getProgramAccounts unavailable / rate-limited — featured fallback below.
   }
 
-  // Guarantee the curated markets are present even if the bulk scan missed/failed.
+  // Degraded read: pull the known-real markets individually if the scan missed/failed.
   // Sequential (not a burst) so the fallback itself doesn't trip rate limits.
-  for (const addr of config.featuredMarkets) {
+  for (const addr of config.fallbackMarkets) {
     if (!byAddress.has(addr)) {
       const m = await fetchMarket(addr, mode, conn).catch(() => null);
       if (m) byAddress.set(addr, m);
@@ -70,6 +70,33 @@ export async function fetchMarkets(
     if (a.state !== b.state) return a.state === "Settled" ? -1 : 1;
     return Number(b.potLamports - a.potLamports);
   });
+}
+
+/**
+ * The markets to feature, chosen from what is actually on chain: settled markets first (they
+ * have a proof to show), then by pot — the ordering `fetchMarkets` already applied. Returns
+ * fewer than `count`, or none, when the chain holds fewer; it never pads the list.
+ */
+export function selectFeatured(
+  markets: MarketAccount[] | null,
+  count = 2,
+): MarketAccount[] {
+  return (markets ?? []).slice(0, count);
+}
+
+/**
+ * Every market this program holds for a TxODDS fixture, ordered by stat key.
+ *
+ * Plural on purpose: the market PDA is seeded by (fixture, stat), so one fixture can carry
+ * several markets. Returning a single "the" market would silently drop real on-chain stakes.
+ */
+export function findAllByFixture(
+  markets: MarketAccount[] | null,
+  fixtureId: number,
+): MarketAccount[] {
+  return (markets ?? [])
+    .filter((m) => m.fixtureId === BigInt(fixtureId))
+    .sort((a, b) => a.statKey - b.statKey);
 }
 
 // ── positions on a market ────────────────────────────────────────────────────────

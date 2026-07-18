@@ -22,10 +22,11 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import re
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -34,6 +35,9 @@ from .detector import OddsSnapshot, PriceQuote
 
 _SPEC = Path(__file__).resolve().parent / "spec" / "txline_openapi.yaml"
 _ODDS_SNAPSHOT_OP = "getApiOddsSnapshotFixtureid"
+# The fixture's live update series (every real price update in the current in-memory cache) —
+# the read the detector actually needs; the snapshot is one static reading per 5-min interval.
+_ODDS_UPDATES_OP = "getApiOddsUpdatesFixtureid"
 # TxLINE sits behind Cloudflare, which 403-bans the stdlib default ``Python-urllib/*``; send a
 # real product UA (learned the hard way). Mirrors privy_http's PRIVY_USER_AGENT rule.
 _USER_AGENT = "gorilla/1.0"
@@ -66,11 +70,28 @@ def _parse_pct(raw: Any) -> float | None:
 
 
 def _market_label(payload: Mapping[str, Any]) -> str:
-    """A stable market label so the same line matches across snapshots. Parameters (e.g. a
-    handicap value) are appended so distinct lines of the same type stay distinct."""
-    super_type = str(payload.get("SuperOddsType", ""))
-    params = str(payload.get("MarketParameters", ""))
-    return f"{super_type}|{params}" if params else super_type
+    """A stable market label so the same line matches across snapshots — and so two DIFFERENT
+    lines never collide.
+
+    The label must carry every field that distinguishes one tradeable line from another,
+    because the detector keys a price history on ``(fixture, bookmaker, market, outcome)``. Two
+    components matter:
+
+    * ``MarketParameters`` — the handicap / total (``line=2`` vs ``line=2.5``).
+    * ``MarketPeriod`` — the phase (full match, ``half=1``, ...). **Omitting this was a real
+      bug.** TxLINE publishes the full-match and first-half ``1X2`` lines interleaved at the
+      same timestamp; without the period they share one key and the detector reads the
+      alternation as movement. On the real France v England book that manufactured 1623
+      "sharp moves" out of 4172 readings — every one an artifact. With the period included the
+      same real data yields 2 genuine moves. A phantom signal is worse than no signal: it is
+      what a policy-gated wallet would have staked on.
+    """
+    parts = [
+        str(payload.get("SuperOddsType") or ""),
+        str(payload.get("MarketParameters") or ""),
+        str(payload.get("MarketPeriod") or ""),
+    ]
+    return "|".join(part for part in parts if part)
 
 
 def _quote_from_payload(payload: Mapping[str, Any]) -> PriceQuote | None:
@@ -101,6 +122,26 @@ def _snapshot_from_payloads(fixture_id: int, payloads: list[Mapping[str, Any]]) 
     quotes = tuple(q for q in (_quote_from_payload(p) for p in payloads) if q is not None)
     ts = max((q.ts for q in quotes), default=0)
     return OddsSnapshot(fixture_id=fixture_id, ts=ts, quotes=quotes)
+
+
+def group_into_snapshots(
+    fixture_id: int, payloads: Iterable[Mapping[str, Any]]
+) -> list[OddsSnapshot]:
+    """A flat stream of raw odds payloads -> ordered snapshots, one per distinct timestamp.
+
+    The wire format is a flat list of per-line updates; the detector consumes *readings*. All
+    lines published at the same ``Ts`` are one reading, and readings are ordered by ``Ts`` so
+    the detector sees the market in the order the book moved it. Payloads with no usable
+    probability (an ``NA`` quarter-handicap, an empty ``Pct``) are dropped rather than faked."""
+    by_ts: dict[int, list[PriceQuote]] = {}
+    for payload in payloads:
+        quote = _quote_from_payload(payload)
+        if quote is None or not quote.pct:
+            continue
+        by_ts.setdefault(quote.ts, []).append(quote)
+    return [
+        OddsSnapshot(fixture_id=fixture_id, ts=ts, quotes=tuple(by_ts[ts])) for ts in sorted(by_ts)
+    ]
 
 
 # --- the live transport edge (injectable, SSRF-guarded) ----------------------------------
@@ -207,6 +248,16 @@ def _endpoint_from_spec(spec_text: str, operation_id: str) -> tuple[str, str]:
     return base_url, path
 
 
+def read_spec_text(spec_path: str | Path | None = None) -> str:
+    """The checked-in TxLINE OpenAPI text. Shared with :mod:`gorilla.fixtures` so both live
+    endpoints are derived from the SAME spec rather than a hardcoded URL."""
+    target = Path(spec_path) if spec_path else _SPEC
+    try:
+        return target.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise FeedError(f"could not read the TxLINE spec at {target}") from exc
+
+
 def _placeholder_payloads(fixture_id: int) -> list[Mapping[str, Any]]:
     """Recorded / $0 mode: ONE schema-shaped ``OddsPayload`` with PLACEHOLDER prices.
 
@@ -247,7 +298,8 @@ class TxlineFeed:
         self._spec_path = Path(spec_path) if spec_path else _SPEC
         self._transport = transport or _urllib_transport
         self._session = session
-        self._endpoint: tuple[str, str] | None = None  # (base_url, path) derived lazily, once
+        # operation_id -> (base_url, path), each derived from the spec lazily and cached once.
+        self._endpoints: dict[str, tuple[str, str]] = {}
 
     def odds(self, fixture_id: int) -> OddsSnapshot:
         """One odds read for ``fixture_id`` as a typed ``OddsSnapshot``. Recorded / $0 (default,
@@ -257,14 +309,30 @@ class TxlineFeed:
         payloads = self._read(int(fixture_id))
         return _snapshot_from_payloads(int(fixture_id), payloads)
 
+    def updates(self, fixture_id: int) -> list[OddsSnapshot]:
+        """The fixture's REAL update series from TxLINE's live in-memory cache, as an ordered
+        list of typed snapshots (one per distinct timestamp).
+
+        This — not repeated ``odds()`` polls — is the live stream the agent watches. The
+        snapshot endpoint serves one reading per 5-minute interval, so polling it every few
+        seconds returns the SAME reading and can never show a market moving. The updates
+        endpoint returns every real price update the book has published for this fixture, which
+        is what a sharp-money detector actually needs. Live only."""
+        if self._mode != "live":
+            raise FeedError("updates() is a live-only read (no offline synthesis of a market)")
+        payloads = self._read_live(fixture_id, _ODDS_UPDATES_OP)
+        return group_into_snapshots(fixture_id, payloads)
+
     def _read(self, fixture_id: int) -> list[Mapping[str, Any]]:
         """The one place the two modes diverge — the transport edge (invariant #3/rule #5)."""
         if self._mode == "live":
-            return self._read_live(fixture_id)
+            return self._read_live(fixture_id, _ODDS_SNAPSHOT_OP)
         return _placeholder_payloads(fixture_id)
 
-    def _read_live(self, fixture_id: int) -> list[Mapping[str, Any]]:
-        base_url, path = self._endpoint_for(_ODDS_SNAPSHOT_OP)
+    def _read_live(
+        self, fixture_id: int, operation_id: str = _ODDS_SNAPSHOT_OP
+    ) -> list[Mapping[str, Any]]:
+        base_url, path = self._endpoint_for(operation_id)
         # fixture_id is an int, so path interpolation cannot inject anything host-changing.
         url = base_url.rstrip("/") + path.replace("{fixtureId}", str(fixture_id))
         _assert_safe_url(url)  # SSRF: no private/loopback host, no non-http scheme
@@ -280,15 +348,95 @@ class TxlineFeed:
         return parsed if isinstance(parsed, list) else []
 
     def _endpoint_for(self, operation_id: str) -> tuple[str, str]:
-        if self._endpoint is None:
-            self._endpoint = _endpoint_from_spec(self._read_spec_text(), operation_id)
-        return self._endpoint
+        cached = self._endpoints.get(operation_id)
+        if cached is None:
+            cached = _endpoint_from_spec(read_spec_text(self._spec_path), operation_id)
+            self._endpoints[operation_id] = cached
+        return cached
 
-    def _read_spec_text(self) -> str:
-        try:
-            return self._spec_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise FeedError(f"could not read the TxLINE spec at {self._spec_path}") from exc
+
+# --- the REAL captured history (the honest fallback when the live feed is unavailable) ----
+#
+# The TxODDS World Cup API closes ~Jul 19. When the live feed is gone, the agent must NOT fall
+# back to the synthetic placeholder or the scripted ``replay`` and call it a market — that
+# would be fabricating data. It falls back to REAL captured odds history: the exact wire
+# records that came off the live API, on disk, replayed in order. Recorded real data is still
+# real data; synthesized data is not.
+
+HISTORY_PATH_ENV = "GORILLA_TXODDS_HISTORY"
+DEFAULT_HISTORY_DIR = Path("~/PycharmProjects/Gecko/sharp-detector/data/txodds-history")
+
+
+def history_dir(path: str | Path | None = None) -> Path:
+    """The captured-history directory — explicit arg, ``$GORILLA_TXODDS_HISTORY``, or default.
+
+    The capture is gigabytes of real wire records, so it lives OUTSIDE the repo and is located
+    by configuration rather than checked in."""
+    if path is not None:
+        return Path(path).expanduser()
+    override = os.environ.get(HISTORY_PATH_ENV)
+    return Path(override).expanduser() if override else DEFAULT_HISTORY_DIR.expanduser()
+
+
+def history_replay(
+    fixture_id: int,
+    *,
+    path: str | Path | None = None,
+    limit: int | None = None,
+) -> list[OddsSnapshot]:
+    """Replay this fixture's REAL captured odds history as ordered snapshots.
+
+    Scans the captured per-day wire records for ``fixture_id`` and groups them exactly as the
+    live path does — same parser, same grouping, same typed result — so the detector cannot
+    tell the difference between this and the live read. ``limit`` caps the number of readings.
+
+    Raises :class:`FeedError` if the capture is missing or holds nothing for this fixture: an
+    absent fallback must FAIL, never quietly degrade into synthesized prices."""
+    root = history_dir(path)
+    odds_dir = root / "raw" / "odds"
+    if not odds_dir.is_dir():
+        raise FeedError(
+            f"no captured TxODDS history at {odds_dir} — set ${HISTORY_PATH_ENV} to the capture"
+        )
+    payloads: list[Mapping[str, Any]] = []
+    for day_file in sorted(odds_dir.glob("day-*.jsonl")):
+        payloads.extend(_history_records(day_file, fixture_id))
+    if not payloads:
+        raise FeedError(
+            f"the captured history at {odds_dir} holds no odds for fixture {fixture_id}"
+        )
+    snapshots = group_into_snapshots(fixture_id, payloads)
+    return snapshots[:limit] if limit is not None else snapshots
+
+
+def _history_records(day_file: Path, fixture_id: int) -> list[Mapping[str, Any]]:
+    """Every captured record for ``fixture_id`` in one day file.
+
+    Streams line by line (these files are ~60-200MB each) and pre-filters on the raw text before
+    parsing JSON, so scanning the whole capture stays cheap. A corrupt line is skipped, not
+    fatal — the capture is treated as untrusted input.
+
+    The pre-filter deliberately matches only the BARE id, not ``"FixtureId": <id>``: the capture
+    is written as compact JSON with no space after the colon, so a separator-sensitive needle
+    silently matches nothing and the fallback reports "no odds" for a fixture that is right
+    there. Correctness does not rest on the pre-filter — every surviving line is parsed and its
+    ``FixtureId`` checked exactly."""
+    needle = str(fixture_id)
+    out: list[Mapping[str, Any]] = []
+    try:
+        with day_file.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if needle not in line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(record, dict) and record.get("FixtureId") == fixture_id:
+                    out.append(record)
+    except OSError as exc:
+        raise FeedError(f"could not read captured history file {day_file.name}") from exc
+    return out
 
 
 # --- offline moving-market simulation (the "recorded feed" the agent loop consumes) -------

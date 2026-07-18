@@ -65,27 +65,37 @@ reverts. The program never calls the outcome.
 | Layer | What it does |
 |---|---|
 | **On-chain** — `program/` (Anchor 1.0) | `forge_markets`: `create_market` / `stake` / `settle` / `claim`. `settle` CPIs the verifiable-data oracle; a bad proof reverts. Fails **closed**. |
-| **Agent** — `backend/gorilla/` | Reads live odds → detects a sharp move → decides a bet within a risk policy → signs within custody policy → settles by proof → claims. One code path, recorded ($0, offline) and live. |
+| **Agent** — `backend/gorilla/` | Reads live odds → detects a sharp move → decides a bet within a risk policy → signs within custody policy → settles by proof → claims. Live by default; the same code path replays real captured history when the feed is gone. |
 | **Custody** — `WalletSeam` | Pluggable signer: `LocalDevnetWallet` (a keypair) or `PrivyWallet` (TEE server-wallet with an on-chain signing policy). Belt (client-side risk cap) + braces (enclave-enforced cap). |
 
-## Run it (offline, $0)
+## Run it (live)
 
 ```bash
 cd backend
 uv sync
-uv run python -m gorilla          # the agent loop, recorded/offline
-uv run python -m gorilla watch    # stream live sharp-money signals ($0, offline)
-uv run python -m gorilla watch --act   # + the policy-gated bet, within a custody cap
-uv run pytest                        # the suite (offline, no network)
+uv run python -m gorilla                  # LIVE: real World Cup odds, real detector
+uv run python -m gorilla watch --act      # + a REAL policy-gated devnet stake
+uv run python -m gorilla watch --history  # replay the REAL captured odds history
+uv run python -m gorilla demo             # SYNTHETIC offline smoke (dev only)
+uv run pytest                             # the suite (offline, no network)
 ```
 
-`watch` is the **signal-first** view of the same agent core: it streams the odds feed
-tick by tick and flags each **sharp move** — a professional-money shift in a line's
-implied probability (book · market · outcome · old%→new% · Δpp · direction) — as a live
-signal. Sharp money moves a line early; catching it before the market is the edge. The
-signal is the hero; `--act` layers on the hands-off bet the agent *would* sign within its
-custody cap (the wallet refuses anything past the cap). Recorded / `$0` / offline by
-default; `--live` polls the real TxLINE feed.
+`watch` is the **signal-first** view of the agent core: it streams a real World Cup
+fixture's odds tick by tick and flags each **sharp move** — a professional-money shift in
+a line's implied probability (book · market · outcome · old%→new% · Δpp · direction).
+Sharp money moves a line early; catching it before the market is the edge.
+
+**Live is the operating mode.** The fixture is competition-filtered to the World Cup (the
+feed mixes in friendlies), the odds are read from TxLINE with a real session, and `--act`
+stakes the bet the signal produced as a **real devnet transaction** through a policy-gated
+wallet — spend cap *and* program/instruction allow-list, both enforced before signing.
+
+Nothing in the live path invents a price. If the live feed is unavailable the agent falls
+back to **real captured history** (the exact wire records the API returned), never to
+synthesized prices. The synthetic scripted market survives only as `demo` / `--offline` —
+the Pattern-B falsifiable simulation — and is labelled as synthetic wherever it prints.
+
+**DEVNET ONLY.** `SolanaRpc` refuses any mainnet URL; mainnet is founder-gated.
 
 Live devnet demos: `uv run python scripts/e2e_settlement.py` (local signer) and `scripts/e2e_settlement_privy.py` (enclave custody) — see `backend/README` for the RPC + funding setup.
 

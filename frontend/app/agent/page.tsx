@@ -6,7 +6,7 @@ import { AgentDashboard } from "@/components/agent/agent-dashboard";
 export const metadata: Metadata = {
   title: "Agent · Gorilla Markets",
   description:
-    "Watch the agent read live odds, detect a sharp move, decide a bet, and sign inside a custody policy it cannot exceed.",
+    "A recorded replay of real captured World Cup odds, run through the real sharp-move detector — ending at a real, policy-gated stake on Solana devnet.",
 };
 
 export default function AgentPage() {
@@ -15,7 +15,7 @@ export default function AgentPage() {
       <PageHeader
         eyebrow="The agent"
         title="Reasoning, step by step"
-        description="The agent reads a live market, detects a sharp move, and sizes a bet — then a policy-gated wallet signs it. The policy is a hard boundary: a max-spend cap plus a program allow-list the agent physically cannot exceed."
+        description="The odds below are a recorded replay of real captured TxLINE records, run through the real detector — not a live feed and not a script. The stake it ends at is real and on Solana devnet, read live from the program."
         className="mb-8"
       />
       <AgentDashboard />

@@ -100,16 +100,22 @@ def run_agent(
 
 
 def demo() -> int:
-    """$0 offline smoke: prove the odds call is first-call-correct, then run the loop on a
-    scripted moving market and show the policy-gated bet. No key, no network.
+    """$0 SYNTHETIC offline smoke: prove the odds call is first-call-correct, then run the loop
+    on a scripted moving market and show the policy-gated bet. No key, no network, no chain.
 
-        uv run python -m gorilla
+    This is the Pattern-B falsifiable simulation, NOT the operating mode: the prices are
+    scripted, the odds read returns schema placeholders, and the "signatures" are sandbox refs.
+    For the real thing — real World Cup odds and a real devnet stake — run ``gorilla watch``.
+
+        uv run python -m gorilla demo
     """
     from .txline_feed import TxlineFeed, replay
     from .wallet import Policy, SandboxWallet
 
     rule = "─" * 68
-    print(f"{rule}\n  Gorilla Markets — offline agent core ($0, no key, no network)\n{rule}")
+    print(f"{rule}\n  Gorilla Markets — SYNTHETIC offline core ($0, no key, no network)")
+    print("  scripted prices + sandbox refs — NOT market data, NOT transactions.")
+    print(f"  the real path is: python -m gorilla watch\n{rule}")
 
     # 1 · one real odds read, first-call-correct (recorded / $0).
     feed = TxlineFeed()

@@ -65,11 +65,28 @@ def helius_devnet_url() -> str:
     return f"https://devnet.helius-rpc.com/?api-key={key}"
 
 
+# The public devnet endpoint — rate-limited but keyless, so the real on-chain path works with
+# no credential at all. Still devnet, so the DEVNET-ONLY guard below is unaffected.
+PUBLIC_DEVNET_URL = "https://api.devnet.solana.com"
+
+
+def devnet_rpc_url() -> str:
+    """The devnet RPC to use: Helius when a key is configured, else the public devnet endpoint.
+
+    Falling back keyless matters because the on-chain path is now the DEFAULT operating mode —
+    a missing Helius key must not be the thing that stops a real transaction from landing. Both
+    branches are devnet; there is no configuration that yields a mainnet URL."""
+    try:
+        return helius_devnet_url()
+    except RpcError:
+        return PUBLIC_DEVNET_URL
+
+
 class SolanaRpc:
     """A devnet JSON-RPC client. Simulate/send/read; devnet-guarded; key never leaks."""
 
     def __init__(self, url: str | None = None, *, timeout: int = 30) -> None:
-        url = url or helius_devnet_url()
+        url = url or devnet_rpc_url()
         low = url.lower()
         if not low.startswith("https://"):
             raise RpcError("devnet RPC must be https")

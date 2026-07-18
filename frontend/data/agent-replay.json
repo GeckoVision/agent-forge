@@ -1,0 +1,215 @@
+{
+  "provenance": {
+    "kind": "recorded-replay",
+    "source": "TxODDS TxLINE",
+    "note": "Real captured wire records replayed through the real detector. Recorded, not live.",
+    "captureFromMs": 1784150176886,
+    "captureToMs": 1784343786980,
+    "generatedAt": "2026-07-18T15:05:01+00:00"
+  },
+  "fixture": {
+    "id": 18257865,
+    "participant1": "France",
+    "participant2": "England",
+    "competition": "World Cup",
+    "competitionId": 72,
+    "kickoffMs": 1784408400000
+  },
+  "detector": {
+    "thresholdPct": 3.0,
+    "readingsObserved": 3802,
+    "movesFlagged": 2
+  },
+  "line": {
+    "bookmaker": "TXLineStablePriceDemargined",
+    "market": "OVERUNDER_PARTICIPANT_GOALS|line=2",
+    "outcome": "over",
+    "readingsOnLine": 178,
+    "windowStart": 7,
+    "windowEnd": 47
+  },
+  "series": [
+    {
+      "ts": 1784151376098,
+      "pct": 72.359
+    },
+    {
+      "ts": 1784151428061,
+      "pct": 72.464
+    },
+    {
+      "ts": 1784151592127,
+      "pct": 72.359
+    },
+    {
+      "ts": 1784151685123,
+      "pct": 72.464
+    },
+    {
+      "ts": 1784151695076,
+      "pct": 72.622
+    },
+    {
+      "ts": 1784151716165,
+      "pct": 73.099
+    },
+    {
+      "ts": 1784151734012,
+      "pct": 73.475
+    },
+    {
+      "ts": 1784151844553,
+      "pct": 73.638
+    },
+    {
+      "ts": 1784151905947,
+      "pct": 74.627
+    },
+    {
+      "ts": 1784151906046,
+      "pct": 75.131
+    },
+    {
+      "ts": 1784151911960,
+      "pct": 75.245
+    },
+    {
+      "ts": 1784151912064,
+      "pct": 75.358
+    },
+    {
+      "ts": 1784151914522,
+      "pct": 75.415
+    },
+    {
+      "ts": 1784151916017,
+      "pct": 75.415
+    },
+    {
+      "ts": 1784151920515,
+      "pct": 75.472
+    },
+    {
+      "ts": 1784151926034,
+      "pct": 75.7
+    },
+    {
+      "ts": 1784151935533,
+      "pct": 75.93
+    },
+    {
+      "ts": 1784151940025,
+      "pct": 76.22
+    },
+    {
+      "ts": 1784151941225,
+      "pct": 76.511
+    },
+    {
+      "ts": 1784151950021,
+      "pct": 76.805
+    },
+    {
+      "ts": 1784151950448,
+      "pct": 77.042
+    },
+    {
+      "ts": 1784151965610,
+      "pct": 77.22
+    },
+    {
+      "ts": 1784151975623,
+      "pct": 77.459
+    },
+    {
+      "ts": 1784151980379,
+      "pct": 77.7
+    },
+    {
+      "ts": 1784151981350,
+      "pct": 77.942
+    },
+    {
+      "ts": 1784151985621,
+      "pct": 78.003
+    },
+    {
+      "ts": 1784151986099,
+      "pct": 79.554
+    },
+    {
+      "ts": 1784151989610,
+      "pct": 79.554
+    },
+    {
+      "ts": 1784151996052,
+      "pct": 79.554
+    },
+    {
+      "ts": 1784151998833,
+      "pct": 78.003
+    },
+    {
+      "ts": 1784152000005,
+      "pct": 77.22
+    },
+    {
+      "ts": 1784152000060,
+      "pct": 75.529
+    },
+    {
+      "ts": 1784152005624,
+      "pct": 75.7
+    },
+    {
+      "ts": 1784152014575,
+      "pct": 79.618
+    },
+    {
+      "ts": 1784152014740,
+      "pct": 80.257
+    },
+    {
+      "ts": 1784152016634,
+      "pct": 79.554
+    },
+    {
+      "ts": 1784152020070,
+      "pct": 79.239
+    },
+    {
+      "ts": 1784152023805,
+      "pct": 77.64
+    },
+    {
+      "ts": 1784152031647,
+      "pct": 78.125
+    },
+    {
+      "ts": 1784152041654,
+      "pct": 78.125
+    }
+  ],
+  "moves": [
+    {
+      "ts": 1784152014575,
+      "bookmaker": "TXLineStablePriceDemargined",
+      "market": "OVERUNDER_PARTICIPANT_GOALS|line=2",
+      "outcome": "over",
+      "old_pct": 75.7,
+      "new_pct": 79.618,
+      "delta_pct": 3.918,
+      "direction": "up"
+    },
+    {
+      "ts": 1784152177568,
+      "bookmaker": "TXLineStablePriceDemargined",
+      "market": "OVERUNDER_PARTICIPANT_GOALS|line=4.5",
+      "outcome": "over",
+      "old_pct": 16.79,
+      "new_pct": 20.338,
+      "delta_pct": 3.548,
+      "direction": "up"
+    }
+  ]
+}

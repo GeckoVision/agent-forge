@@ -22,8 +22,13 @@ export interface NetworkConfig {
   txoracleProgramId: PublicKey;
   /** Cluster label used to build explorer links. */
   explorerCluster: ExplorerCluster;
-  /** Curated settled markets to feature (real, on-chain). */
-  featuredMarkets: string[];
+  /**
+   * Real on-chain markets to fall back to when the bulk `getProgramAccounts` scan is
+   * unavailable (public devnet 429s it heavily). NOT a curated feature list — the featured
+   * set is derived from live program accounts by {@link selectFeatured}; these addresses are
+   * only a degraded read path so the page shows real state instead of nothing.
+   */
+  fallbackMarkets: string[];
   /** Whether this mode reads live chain data yet. */
   live: boolean;
 }
@@ -39,8 +44,13 @@ const MAINNET_TXORACLE_ID = new PublicKey(
   "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA",
 );
 
-// The two real settled markets we created (winner = Yes, Settled, pot 0.015 SOL).
-export const FEATURED_MARKETS = [
+/**
+ * Degraded-read addresses only. Two REAL markets this program owns on devnet — read
+ * individually when `getProgramAccounts` is rate-limited, so the UI can still render real
+ * on-chain state. Whatever they hold on chain is what renders; nothing about them is asserted
+ * here. The markets the page features are chosen from live accounts, not from this list.
+ */
+export const FALLBACK_MARKETS = [
   "3urJkTFSAf6QXLU6QvkbbS4GjLn3Tos8VQjKgGmRrVL8",
   "CBmdQH4sATjCkeVUe8TC6fCmawv8rqf8sM5G39DHf295",
 ] as const;
@@ -52,7 +62,7 @@ const NETWORKS: Record<DataMode, NetworkConfig> = {
     forgeProgramId: FORGE_PROGRAM_ID,
     txoracleProgramId: DEVNET_TXORACLE_ID,
     explorerCluster: "devnet",
-    featuredMarkets: [...FEATURED_MARKETS],
+    fallbackMarkets: [...FALLBACK_MARKETS],
     live: true,
   },
   // SEAM — not wired to a live RPC yet. A future toggle points this at a
@@ -63,7 +73,7 @@ const NETWORKS: Record<DataMode, NetworkConfig> = {
     forgeProgramId: FORGE_PROGRAM_ID,
     txoracleProgramId: MAINNET_TXORACLE_ID,
     explorerCluster: "custom",
-    featuredMarkets: [],
+    fallbackMarkets: [],
     live: false,
   },
 };
