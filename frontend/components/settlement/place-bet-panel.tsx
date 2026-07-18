@@ -41,6 +41,7 @@ import {
 import {
   describePredicate,
   type FixtureParticipants,
+  sideOutcome,
 } from "@/lib/solana/predicate";
 import { fixtureHeadline } from "@/components/settlement/market-summary";
 import { cn } from "@/lib/utils";
@@ -359,28 +360,43 @@ export function PlaceBetPanel({
         )}
       </div>
 
-      {/* side + amount */}
+      {/* side + amount — each side states its outcome so YES/NO is never ambiguous */}
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-2">
-          {(["Yes", "No"] as Side[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                setSide(s);
-                reset();
-              }}
-              className={cn(
-                "rounded-lg border py-2 text-sm font-semibold transition-colors cursor-pointer",
-                side === s
-                  ? s === "Yes"
-                    ? "border-yes/40 bg-yes/10 text-yes"
-                    : "border-no/40 bg-no/10 text-no"
-                  : "border-border/70 text-muted-foreground hover:bg-secondary",
-              )}
-            >
-              {s.toUpperCase()}
-            </button>
-          ))}
+          {(["Yes", "No"] as Side[]).map((s) => {
+            // Null for unmapped stats — the button then shows plain YES/NO rather than
+            // an invented negation.
+            const outcome = sideOutcome(market, participants, s);
+            return (
+              <button
+                key={s}
+                onClick={() => {
+                  setSide(s);
+                  reset();
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2 transition-colors cursor-pointer",
+                  side === s
+                    ? s === "Yes"
+                      ? "border-yes/40 bg-yes/10 text-yes"
+                      : "border-no/40 bg-no/10 text-no"
+                    : "border-border/70 text-muted-foreground hover:bg-secondary",
+                )}
+              >
+                <span className="text-sm font-semibold">{s.toUpperCase()}</span>
+                {outcome && (
+                  <span
+                    className={cn(
+                      "text-xs leading-tight",
+                      side === s ? "opacity-90" : "text-muted-foreground",
+                    )}
+                  >
+                    {outcome}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           {AMOUNTS.map((a) => (
@@ -445,6 +461,43 @@ export function PlaceBetPanel({
           want. Simulate to see the program refuse it safely.
         </p>
       )}
+
+      {/* the full bet, restated in words, right where the user commits to it */}
+      <p className="rounded-lg border border-border/70 bg-background/40 p-2.5 text-sm">
+        {(() => {
+          const outcome = sideOutcome(market, participants, side);
+          return outcome ? (
+            <>
+              You&rsquo;re staking{" "}
+              <span className="tabular font-semibold">{amount} SOL</span> that{" "}
+              <span
+                className={cn(
+                  "font-semibold",
+                  side === "Yes" ? "text-yes" : "text-no",
+                )}
+              >
+                {outcome}
+              </span>
+              .
+            </>
+          ) : (
+            // Unmapped stat — state the side and the exact predicate, never a guessed outcome.
+            <>
+              You&rsquo;re staking{" "}
+              <span className="tabular font-semibold">{amount} SOL</span> on{" "}
+              <span
+                className={cn(
+                  "font-semibold",
+                  side === "Yes" ? "text-yes" : "text-no",
+                )}
+              >
+                {side.toUpperCase()}
+              </span>{" "}
+              for <span className="font-mono text-xs">{technical}</span>.
+            </>
+          );
+        })()}
+      </p>
 
       <div className="flex items-center gap-2">
         <Button

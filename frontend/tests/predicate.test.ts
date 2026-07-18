@@ -5,6 +5,7 @@ import {
   describePredicate,
   humanPredicate,
   predicateHeadline,
+  sideOutcome,
   teamForStatKey,
   technicalPredicate,
 } from "@/lib/solana/predicate";
@@ -131,6 +132,68 @@ describe("describePredicate / predicateHeadline — pairing human with technical
     expect(predicateHeadline(market(9, Comparison.GreaterThan, 0), FRANCE_ENGLAND)).toBe(
       "stat #9 > 0",
     );
+  });
+});
+
+describe("sideOutcome — what each side means, with an honest negation", () => {
+  it("states YES and its negation for the common '> 0' market", () => {
+    const m = market(1, Comparison.GreaterThan, 0);
+    expect(sideOutcome(m, FRANCE_ENGLAND, "Yes")).toBe("France scores");
+    expect(sideOutcome(m, FRANCE_ENGLAND, "No")).toBe("France doesn't score");
+  });
+
+  it("uses participant 2's name for stat key 2", () => {
+    const m = market(2, Comparison.GreaterThan, 0);
+    expect(sideOutcome(m, FRANCE_ENGLAND, "Yes")).toBe("England scores");
+    expect(sideOutcome(m, FRANCE_ENGLAND, "No")).toBe("England doesn't score");
+  });
+
+  it("negates '> n' as 'n or fewer'", () => {
+    const m = market(1, Comparison.GreaterThan, 2);
+    expect(sideOutcome(m, FRANCE_ENGLAND, "Yes")).toBe(
+      "France scores more than 2 goals",
+    );
+    expect(sideOutcome(m, FRANCE_ENGLAND, "No")).toBe("France scores 2 goals or fewer");
+  });
+
+  it("negates '< n' as 'n or more', with the '< 1' shorthand", () => {
+    const m1 = market(1, Comparison.LessThan, 1);
+    expect(sideOutcome(m1, FRANCE_ENGLAND, "Yes")).toBe("France doesn't score");
+    expect(sideOutcome(m1, FRANCE_ENGLAND, "No")).toBe("France scores");
+    const m3 = market(1, Comparison.LessThan, 3);
+    expect(sideOutcome(m3, FRANCE_ENGLAND, "Yes")).toBe(
+      "France scores fewer than 3 goals",
+    );
+    expect(sideOutcome(m3, FRANCE_ENGLAND, "No")).toBe("France scores 3 goals or more");
+  });
+
+  it("negates '= n', with the '= 0' shorthand", () => {
+    const m0 = market(2, Comparison.EqualTo, 0);
+    expect(sideOutcome(m0, FRANCE_ENGLAND, "Yes")).toBe("England doesn't score");
+    expect(sideOutcome(m0, FRANCE_ENGLAND, "No")).toBe("England scores");
+    const m2 = market(2, Comparison.EqualTo, 2);
+    expect(sideOutcome(m2, FRANCE_ENGLAND, "Yes")).toBe(
+      "England scores exactly 2 goals",
+    );
+    expect(sideOutcome(m2, FRANCE_ENGLAND, "No")).toBe(
+      "England doesn't score exactly 2 goals",
+    );
+  });
+
+  it("never invents an outcome for an unmapped stat, missing names, or degenerate thresholds", () => {
+    expect(
+      sideOutcome(market(9, Comparison.GreaterThan, 0), FRANCE_ENGLAND, "Yes"),
+    ).toBeNull();
+    expect(
+      sideOutcome(market(9, Comparison.GreaterThan, 0), FRANCE_ENGLAND, "No"),
+    ).toBeNull();
+    expect(sideOutcome(market(1, Comparison.GreaterThan, 0), null, "No")).toBeNull();
+    expect(
+      sideOutcome(market(1, Comparison.LessThan, 0), FRANCE_ENGLAND, "No"),
+    ).toBeNull();
+    expect(
+      sideOutcome(market(1, Comparison.GreaterThan, -1), FRANCE_ENGLAND, "Yes"),
+    ).toBeNull();
   });
 });
 

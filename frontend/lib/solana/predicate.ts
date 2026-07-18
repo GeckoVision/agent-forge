@@ -102,6 +102,56 @@ export function humanPredicate(
   }
 }
 
+/**
+ * What actually happens if a given side wins — present-tense, e.g. YES → "France scores",
+ * NO → "France doesn't score".
+ *
+ * Same confidence rule as {@link humanPredicate}: only verified goal stats (keys 1/2) with a
+ * known team name get a sentence; everything else returns `null` and the caller shows plain
+ * YES/NO. The NO side is the logical negation of the predicate — never a guess:
+ *
+ *   > n  ↔  n or fewer  ·  < n  ↔  n or more  ·  = n  ↔  anything but n
+ */
+export function sideOutcome(
+  market: MarketAccount,
+  participants: FixtureParticipants | null | undefined,
+  side: "Yes" | "No",
+): string | null {
+  const team = teamForStatKey(market.statKey, participants);
+  if (!team) return null;
+
+  const { comparison, threshold } = market.predicate;
+  if (!Number.isInteger(threshold) || threshold < 0) return null;
+
+  const yes = side === "Yes";
+  switch (comparison) {
+    case Comparison.GreaterThan:
+      if (threshold === 0) {
+        return yes ? `${team} scores` : `${team} doesn't score`;
+      }
+      return yes
+        ? `${team} scores more than ${goals(threshold)}`
+        : `${team} scores ${goals(threshold)} or fewer`;
+    case Comparison.LessThan:
+      if (threshold === 0) return null; // `< 0` can never hold — not a real goals market.
+      if (threshold === 1) {
+        return yes ? `${team} doesn't score` : `${team} scores`;
+      }
+      return yes
+        ? `${team} scores fewer than ${goals(threshold)}`
+        : `${team} scores ${goals(threshold)} or more`;
+    case Comparison.EqualTo:
+      if (threshold === 0) {
+        return yes ? `${team} doesn't score` : `${team} scores`;
+      }
+      return yes
+        ? `${team} scores exactly ${goals(threshold)}`
+        : `${team} doesn't score exactly ${goals(threshold)}`;
+    default:
+      return null;
+  }
+}
+
 export interface PredicateDescription {
   /** The readable sentence, or `null` when no verified reading exists. */
   human: string | null;
