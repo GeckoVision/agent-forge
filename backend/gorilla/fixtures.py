@@ -148,6 +148,24 @@ def history_world_cup_fixtures(path: str | None = None) -> tuple[Fixture, ...]:
     return filter_world_cup(tuple(seen.values()))
 
 
+def pick_from_candidates(candidates: Sequence[Fixture], fixture_id: int | None = None) -> Fixture:
+    """Pure pick over an already-fetched candidate set (earliest-starting, or the asked-for id).
+
+    Split from :func:`pick_world_cup_fixture` so a caller that needs the WHOLE candidate set
+    too — the watch keeps it as its oracle-coverage evidence — fetches it exactly once."""
+    if not candidates:
+        raise FeedError("no World Cup fixtures are live on TxLINE right now")
+    if fixture_id is None:
+        return sorted(candidates, key=lambda f: (f.start_time_ms, f.fixture_id))[0]
+    for fixture in candidates:
+        if fixture.fixture_id == fixture_id:
+            return fixture
+    ids = ", ".join(str(f.fixture_id) for f in candidates)
+    raise FeedError(
+        f"fixture {fixture_id} is not a live {WORLD_CUP} fixture (live World Cup ids: {ids})"
+    )
+
+
 def pick_world_cup_fixture(
     fixture_id: int | None = None,
     *,
@@ -159,15 +177,6 @@ def pick_world_cup_fixture(
     With ``fixture_id`` it must be a World Cup fixture or this raises — asking for a friendly
     by id is refused rather than silently watched. Without one it takes the earliest-starting
     World Cup fixture."""
-    candidates = world_cup_fixtures(session=session, transport=transport)
-    if not candidates:
-        raise FeedError("no World Cup fixtures are live on TxLINE right now")
-    if fixture_id is None:
-        return sorted(candidates, key=lambda f: (f.start_time_ms, f.fixture_id))[0]
-    for fixture in candidates:
-        if fixture.fixture_id == fixture_id:
-            return fixture
-    ids = ", ".join(str(f.fixture_id) for f in candidates)
-    raise FeedError(
-        f"fixture {fixture_id} is not a live {WORLD_CUP} fixture (live World Cup ids: {ids})"
+    return pick_from_candidates(
+        world_cup_fixtures(session=session, transport=transport), fixture_id
     )

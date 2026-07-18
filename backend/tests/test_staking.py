@@ -17,6 +17,7 @@ from gorilla.settlement import CREATE_PURPOSE
 from gorilla.staking import (
     LiveMarket,
     StakingError,
+    UncoveredFixtureError,
     chain_policy,
     ensure_market,
     stake_on_bet,
@@ -75,11 +76,75 @@ def test_chain_policy_binds_each_purpose_to_a_program_and_instruction():
     assert policy.bindings[CREATE_PURPOSE] == (str(FORGE_PROGRAM_ID), "create_market")
 
 
+# ── coverage gate: create only what can settle ────────────────────────────────────
+def test_ensure_market_refuses_an_uncovered_fixture_before_anything_is_sent():
+    """THE bug this pins: a market for a fixture outside TxODDS coverage can NEVER settle
+    (settle needs a Merkle proof against a root TxODDS commits), so the stake would be stuck
+    forever. The agent must refuse to open it — typed, named, nothing broadcast."""
+    rpc = FakeRpc()
+    with pytest.raises(UncoveredFixtureError, match="not in TxODDS coverage"):
+        ensure_market(
+            rpc=rpc,
+            wallet=_wallet(rpc),
+            fixture_id=FIXTURE_ID,
+            stat_key=STAT_KEY,
+            covered=lambda _fid: False,
+        )
+    assert rpc.sent == []  # refused BEFORE any transaction was built or sent
+
+
+def test_uncovered_fixture_error_names_the_fixture_and_flows_as_a_staking_error():
+    """It must surface through watch's existing ``except StakingError`` path, and the one-line
+    message must name the fixture and say WHY."""
+    rpc = FakeRpc()
+    with pytest.raises(StakingError) as excinfo:  # the supertype watch already catches
+        ensure_market(
+            rpc=rpc,
+            wallet=_wallet(rpc),
+            fixture_id=FIXTURE_ID,
+            stat_key=STAT_KEY,
+            covered=frozenset().__contains__,
+        )
+    assert str(FIXTURE_ID) in str(excinfo.value)
+    assert "could never settle" in str(excinfo.value)
+
+
+def test_ensure_market_without_a_coverage_answer_is_a_loud_error_not_a_pass():
+    """No silent default: creating without a coverage source must be an explicit opt-out,
+    never an omission."""
+    rpc = FakeRpc()
+    with pytest.raises(ValueError, match="coverage"):
+        ensure_market(rpc=rpc, wallet=_wallet(rpc), fixture_id=FIXTURE_ID, stat_key=STAT_KEY)
+    assert rpc.sent == []
+
+
+def test_ensure_market_coverage_override_is_an_explicit_opt_out():
+    """Synthetic/recorded-proof fixtures (nonce'd ids that settle against a recorded root) may
+    opt out — but only by SAYING so."""
+    rpc = FakeRpc()
+    market = ensure_market(
+        rpc=rpc,
+        wallet=_wallet(rpc),
+        fixture_id=FIXTURE_ID,
+        stat_key=STAT_KEY,
+        coverage_override=True,
+    )
+    assert market.create_sig is not None
+    assert len(rpc.sent) == 1
+
+
 # ── market lifecycle ──────────────────────────────────────────────────────────────
-def test_ensure_market_opens_an_absent_market():
+def test_ensure_market_opens_an_absent_covered_market():
+    """A covered fixture proceeds down the existing create path unchanged."""
     rpc = FakeRpc()
     wallet = _wallet(rpc)
-    market = ensure_market(rpc=rpc, wallet=wallet, fixture_id=FIXTURE_ID, stat_key=STAT_KEY)
+    market = ensure_market(
+        rpc=rpc,
+        wallet=wallet,
+        fixture_id=FIXTURE_ID,
+        stat_key=STAT_KEY,
+        covered=frozenset({FIXTURE_ID}).__contains__,
+    )
     expected, _ = market_pda(FIXTURE_ID, STAT_KEY)
     assert market.address == str(expected)
     assert market.create_sig is not None  # a real create transaction was sent
@@ -91,7 +156,13 @@ def test_ensure_market_is_idempotent_for_an_existing_open_market():
     market_key, _ = market_pda(FIXTURE_ID, STAT_KEY)
     open_market = _market_bytes(state=0)
     rpc = FakeRpc(accounts={str(market_key): open_market})
-    market = ensure_market(rpc=rpc, wallet=_wallet(rpc), fixture_id=FIXTURE_ID, stat_key=STAT_KEY)
+    market = ensure_market(
+        rpc=rpc,
+        wallet=_wallet(rpc),
+        fixture_id=FIXTURE_ID,
+        stat_key=STAT_KEY,
+        covered=lambda fid: fid == FIXTURE_ID,
+    )
     assert market.create_sig is None
     assert rpc.sent == []  # nothing broadcast
 
@@ -100,7 +171,13 @@ def test_ensure_market_refuses_a_settled_market():
     market_key, _ = market_pda(FIXTURE_ID, STAT_KEY)
     rpc = FakeRpc(accounts={str(market_key): _market_bytes(state=1)})
     with pytest.raises(StakingError, match="Settled"):
-        ensure_market(rpc=rpc, wallet=_wallet(rpc), fixture_id=FIXTURE_ID, stat_key=STAT_KEY)
+        ensure_market(
+            rpc=rpc,
+            wallet=_wallet(rpc),
+            fixture_id=FIXTURE_ID,
+            stat_key=STAT_KEY,
+            covered=lambda fid: fid == FIXTURE_ID,
+        )
 
 
 # ── staking ───────────────────────────────────────────────────────────────────────
