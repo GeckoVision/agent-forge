@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PublicKey } from "@solana/web3.js";
 
 import {
+  buildCreateMarketIx,
   buildStakeIx,
   Comparison,
   customErrorCode,
@@ -138,6 +139,78 @@ describe("buildStakeIx — first-call-correct wire format", () => {
         amountLamports: 0n,
       }),
     ).toThrow();
+  });
+});
+
+describe("buildCreateMarketIx — first-call-correct wire format", () => {
+  // On-chain-verified test vector: this (fixture, stat) pair is a LIVE market on
+  // devnet — the derivation below must land on its real address.
+  const LIVE_FIXTURE_ID = 18257739n;
+  const LIVE_STAT_KEY = 1;
+  const LIVE_MARKET = "GUQY5VD6syE8TEeywPrUa91U2L1Tnp7y1qjoNzwd34kg";
+
+  const { instruction, market, vault } = buildCreateMarketIx({
+    fixtureId: LIVE_FIXTURE_ID,
+    statKey: LIVE_STAT_KEY,
+    threshold: 0,
+    comparison: Comparison.GreaterThan,
+    period: 0,
+    authority: STAKER,
+  });
+
+  it("targets the forge program", () => {
+    expect(instruction.programId.equals(FORGE_PROGRAM_ID)).toBe(true);
+  });
+
+  it("derives the market PDA verified against the live devnet account", () => {
+    expect(market.toBase58()).toBe(LIVE_MARKET);
+    const [pda] = marketPda(LIVE_FIXTURE_ID, LIVE_STAT_KEY);
+    expect(pda.toBase58()).toBe(LIVE_MARKET);
+  });
+
+  it("passes the derived vault PDA of the market", () => {
+    const [expectedVault] = vaultPda(market);
+    expect(vault.toBase58()).toBe(expectedVault.toBase58());
+  });
+
+  it("encodes the exact byte layout: disc + i64 fixture + u32 stat + i32 threshold + u8 cmp + i32 period", () => {
+    // disc(create_market) · 18257739 LE i64 · 1 LE u32 · 0 i32 · 0 u8 · 0 i32
+    expect(Buffer.from(instruction.data).toString("hex")).toBe(
+      "67e261ebc8bcfbfe4b9716010000000001000000000000000000000000",
+    );
+    expect(instruction.data.length).toBe(8 + 8 + 4 + 4 + 1 + 4);
+  });
+
+  it("has the correct account order + signer/writable flags", () => {
+    const keys = instruction.keys;
+    expect(keys).toHaveLength(4);
+    // market (w), vault (r), authority (signer,w), system (r) — mirrors CreateMarket.
+    expect(keys[0].pubkey.equals(market)).toBe(true);
+    expect(keys[0].isWritable && !keys[0].isSigner).toBe(true);
+    expect(keys[1].pubkey.equals(vault)).toBe(true);
+    expect(!keys[1].isWritable && !keys[1].isSigner).toBe(true);
+    expect(keys[2].pubkey.equals(STAKER)).toBe(true);
+    expect(keys[2].isSigner && keys[2].isWritable).toBe(true);
+    expect(keys[3].isSigner).toBe(false);
+    expect(keys[3].isWritable).toBe(false);
+  });
+
+  it("encodes a non-default predicate/period faithfully", () => {
+    const { instruction: ix } = buildCreateMarketIx({
+      fixtureId: -1n, // i64 sign handling
+      statKey: 2,
+      threshold: 3,
+      comparison: Comparison.LessThan,
+      period: 1,
+      authority: STAKER,
+    });
+    const data = Uint8Array.from(ix.data);
+    const view = new DataView(data.buffer, data.byteOffset);
+    expect(view.getBigInt64(8, true)).toBe(-1n);
+    expect(view.getUint32(16, true)).toBe(2);
+    expect(view.getInt32(20, true)).toBe(3);
+    expect(data[24]).toBe(Comparison.LessThan);
+    expect(view.getInt32(25, true)).toBe(1);
   });
 });
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DEMO_DATASET } from "@/lib/mongo/types";
+import type { CoveredFixture } from "@/lib/solana/open-market";
 import type { FixtureParticipants } from "@/lib/solana/predicate";
 
 /**
@@ -37,6 +38,12 @@ interface FixturesResponse {
 
 export function useFixtureParticipants(): {
   lookup: ParticipantsLookup;
+  /**
+   * Every match the capture covers (both names known) — the open-a-market flow's
+   * pickable universe. Presence here IS the coverage evidence: the oracle can only
+   * settle fixtures in the capture, so nothing else may ever be offered.
+   */
+  covered: CoveredFixture[];
   loading: boolean;
 } {
   const [byId, setById] = useState<Map<number, FixtureInfo> | null>(null);
@@ -77,5 +84,11 @@ export function useFixtureParticipants(): {
     [byId],
   );
 
-  return { lookup, loading: byId === null };
+  const covered: CoveredFixture[] = useMemo(
+    () =>
+      byId ? [...byId.entries()].map(([fixtureId, info]) => ({ fixtureId, ...info })) : [],
+    [byId],
+  );
+
+  return { lookup, covered, loading: byId === null };
 }

@@ -44,8 +44,10 @@ export function fixtureHeadline(
 /**
  * Copies this market's deep link (`/settlement?market=<address>`) so a bet can be
  * sent to a group chat — the friend lands on THIS market, not the featured set.
+ * Exported: the open-a-market panel shows the same button the moment a market
+ * is created, so "share it with your friends" is one affordance, not two copies.
  */
-function ShareBetButton({ address }: { address: string }) {
+export function ShareBetButton({ address }: { address: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {

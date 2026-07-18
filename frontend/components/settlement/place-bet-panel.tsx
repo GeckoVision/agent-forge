@@ -3,11 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
-  TransactionMessage,
-  VersionedTransaction,
-  type TransactionInstruction,
-} from "@solana/web3.js";
-import {
   Ban,
   CircleAlert,
   CircleCheck,
@@ -16,7 +11,6 @@ import {
   LoaderCircle,
   Send,
   Ticket,
-  TriangleAlert,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,15 +19,12 @@ import { Separator } from "@/components/ui/separator";
 import { ConnectButton } from "@/components/wallet/connect-button";
 import { ExplorerLink } from "@/components/shared/explorer-link";
 import { shortAddress } from "@/lib/format";
-import { useCluster } from "@/hooks/use-cluster";
+import { useInstructionFlow } from "@/hooks/use-instruction-flow";
 import { CLUSTER_LABEL } from "@/lib/solana/cluster";
 import type { ExplorerCluster } from "@/lib/solana/config";
-import { confirmSignature } from "@/lib/solana/confirm";
 import {
   buildStakeIx,
-  customErrorCode,
   DISCRIMINATORS,
-  settlementErrorName,
   toLamports,
   type MarketAccount,
   type Side,
@@ -44,28 +35,19 @@ import {
   sideOutcome,
 } from "@/lib/solana/predicate";
 import { fixtureHeadline } from "@/components/settlement/market-summary";
+import {
+  EXPECTED_CLUSTER,
+  NetworkBanner,
+} from "@/components/settlement/network-banner";
 import { cn } from "@/lib/utils";
-
-// The app talks to devnet; a stake signed by a wallet on any other cluster is the exact
-// mismatch that silently never-broadcasts. This is the network the panel expects.
-const EXPECTED_CLUSTER = "devnet";
 
 const AMOUNTS = [0.002, 0.005, 0.01];
 
-type Phase =
-  | "idle"
-  | "simulating"
-  | "sim-ok"
-  | "sim-err"
-  | "sending"
-  | "sent"
-  | "send-err";
-
-function discHex(name: keyof typeof DISCRIMINATORS): string {
+export function discHex(name: keyof typeof DISCRIMINATORS): string {
   return DISCRIMINATORS[name].map((b) => b.toString(16).padStart(2, "0")).join(" ");
 }
 
-function AccountRow({
+export function AccountRow({
   label,
   pubkey,
   flags,
@@ -99,18 +81,20 @@ export function PlaceBetPanel({
   cluster?: ExplorerCluster;
 }) {
   const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
-  // The cluster the panel's connection actually reaches, verified from its genesis hash. This
-  // is the network a stake truly targets — NOT the wallet's own selected cluster, which the
-  // adapter does not expose (see lib/solana/cluster.ts).
-  const { cluster: appCluster } = useCluster();
+  const { publicKey } = useWallet();
 
   const [side, setSide] = useState<Side>("Yes");
   const [amount, setAmount] = useState(0.005);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [message, setMessage] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[] | null>(null);
-  const [sig, setSig] = useState<string | null>(null);
+  // The shared simulate-then-send flow — same gates as every signing panel.
+  const { phase, message, logs, sig, reset, simulate, send, canSend } =
+    useInstructionFlow({
+      simOk: "Simulation succeeded — the bet is valid and ready to sign.",
+      sent: (outcome) => `Bet placed on-chain (${outcome}).`,
+      timeout:
+        "Couldn't confirm this bet within 30s. It may not have been broadcast — " +
+        "check the signature on the explorer, and that your wallet is on " +
+        `${CLUSTER_LABEL[EXPECTED_CLUSTER]}. Nothing has been recorded as placed.`,
+    });
   // Whether this wallet already holds a position on this market. The program allows exactly
   // one stake per staker per market (`init`, not `init_if_needed`), so a second stake can
   // never succeed — telling the user up front beats a cryptic failure. Keyed by the position
@@ -160,92 +144,6 @@ export function PlaceBetPanel({
   const hasPosition =
     posState && posState.key === positionKey ? posState.exists : null;
 
-  const reset = () => {
-    setPhase("idle");
-    setMessage(null);
-    setLogs(null);
-    setSig(null);
-  };
-
-  async function buildVersionedTx(ix: TransactionInstruction) {
-    const { blockhash } = await connection.getLatestBlockhash("confirmed");
-    const msg = new TransactionMessage({
-      payerKey: publicKey!,
-      recentBlockhash: blockhash,
-      instructions: [ix],
-    }).compileToV0Message();
-    return new VersionedTransaction(msg);
-  }
-
-  async function simulate() {
-    if (!built) return;
-    reset();
-    setPhase("simulating");
-    try {
-      const tx = await buildVersionedTx(built.instruction);
-      const res = await connection.simulateTransaction(tx, {
-        sigVerify: false,
-        replaceRecentBlockhash: true,
-        commitment: "confirmed",
-      });
-      setLogs(res.value.logs ?? null);
-      if (res.value.err) {
-        const code = customErrorCode(res.value.err);
-        const name = code ? settlementErrorName(code) : null;
-        setPhase("sim-err");
-        setMessage(
-          name
-            ? `Program refused, fail-closed: ${name} (${code}).`
-            : `Simulation reverted: ${JSON.stringify(res.value.err)}`,
-        );
-      } else {
-        setPhase("sim-ok");
-        setMessage("Simulation succeeded — the bet is valid and ready to sign.");
-      }
-    } catch (e) {
-      setPhase("sim-err");
-      setMessage(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  async function placeBet() {
-    if (!built || !publicKey) return;
-    setPhase("sending");
-    setMessage(null);
-    try {
-      const tx = await buildVersionedTx(built.instruction);
-      const signature = await sendTransaction(tx, connection);
-      setSig(signature);
-      // Poll over HTTP (the proxy connection has no ws endpoint for a
-      // subscription-based confirmTransaction).
-      const outcome = await confirmSignature(connection, signature, {
-        timeoutMs: 30_000,
-      });
-      if (outcome === "failed") {
-        setPhase("send-err");
-        setMessage("Transaction reverted on-chain.");
-        return;
-      }
-      if (outcome === "timeout") {
-        // A signature exists the moment the wallet signs — it proves NOTHING about whether the
-        // transaction was broadcast or landed. Report the honest truth: unconfirmed, and
-        // possibly never sent (a common symptom of a wallet on the wrong cluster).
-        setPhase("send-err");
-        setMessage(
-          "Couldn't confirm this bet within 30s. It may not have been broadcast — " +
-            "check the signature on the explorer, and that your wallet is on " +
-            `${CLUSTER_LABEL[EXPECTED_CLUSTER]}. Nothing has been recorded as placed.`,
-        );
-        return;
-      }
-      setPhase("sent");
-      setMessage(`Bet placed on-chain (${outcome}).`);
-    } catch (e) {
-      setPhase("send-err");
-      setMessage(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   if (!publicKey) {
     return (
       <div className="flex flex-col items-start gap-4">
@@ -265,10 +163,9 @@ export function PlaceBetPanel({
   const settled = market.state === "Settled";
   const headline = fixtureHeadline(market, participants);
   const { human, technical } = describePredicate(market, participants);
-  const clusterOk = appCluster === EXPECTED_CLUSTER;
   // Placing is only allowed after a clean simulation (or to retry a failed send). This is the
   // gate that item 2's disabled styling and hint make visible.
-  const canPlace = phase === "sim-ok" || phase === "send-err";
+  const canPlace = canSend;
 
   return (
     <div className="flex flex-col gap-4">
@@ -297,45 +194,7 @@ export function PlaceBetPanel({
       </div>
 
       {/* network — the app talks to devnet; a wallet on any other cluster silently fails */}
-      <div
-        className={cn(
-          "flex items-start gap-2 rounded-lg border p-2.5 text-xs leading-relaxed",
-          appCluster === null
-            ? "border-border/70 bg-secondary/40 text-muted-foreground"
-            : clusterOk
-              ? "border-primary/25 bg-primary/5 text-muted-foreground"
-              : "border-destructive/40 bg-destructive/5 text-foreground",
-        )}
-      >
-        {appCluster === null ? (
-          <>
-            <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin" />
-            <span>Checking which network this app is connected to…</span>
-          </>
-        ) : clusterOk ? (
-          <>
-            <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
-            <span>
-              This app settles on{" "}
-              <span className="font-medium text-foreground">
-                {CLUSTER_LABEL[EXPECTED_CLUSTER]}
-              </span>
-              . Make sure your wallet is set to {CLUSTER_LABEL[EXPECTED_CLUSTER]} too,
-              or the bet will fail to broadcast.
-            </span>
-          </>
-        ) : (
-          <>
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-            <span>
-              This app is connected to{" "}
-              <span className="font-medium">{CLUSTER_LABEL[appCluster]}</span>, not{" "}
-              {CLUSTER_LABEL[EXPECTED_CLUSTER]}. Bets here will not settle as expected
-              — switch to {CLUSTER_LABEL[EXPECTED_CLUSTER]} before staking.
-            </span>
-          </>
-        )}
-      </div>
+      <NetworkBanner subject="bet" />
 
       {/* the one-stake-per-market rule — an explanation shown BEFORE you hit it, not an error */}
       <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-secondary/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -502,7 +361,7 @@ export function PlaceBetPanel({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          onClick={simulate}
+          onClick={() => built && simulate(built.instruction)}
           disabled={!built || phase === "simulating" || phase === "sending"}
           className="flex-1"
         >
@@ -517,7 +376,7 @@ export function PlaceBetPanel({
             `pointer-events-none`, so the hover cursor must live on the parent. */}
         <span className={cn("flex-1", !canPlace && "cursor-not-allowed")}>
           <Button
-            onClick={placeBet}
+            onClick={() => built && send(built.instruction)}
             disabled={!canPlace}
             aria-disabled={!canPlace}
             className={cn(

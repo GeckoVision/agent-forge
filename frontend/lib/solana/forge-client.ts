@@ -15,8 +15,8 @@ import { FORGE_PROGRAM_ID } from "./config";
  * PDA derivations — and decodes the public on-chain `Market`/`Position` state.
  * The program is frozen; this file mirrors its wire format as DATA.
  *
- * Only the read + `stake` paths are ported here (what the web surface needs);
- * settle/claim stay server-side in the backend.
+ * Only the read + `stake` + `create_market` paths are ported here (what the web
+ * surface needs); settle/claim stay server-side in the backend.
  */
 
 export type Side = "Yes" | "No";
@@ -222,6 +222,51 @@ export function buildStakeIx(params: {
   });
 
   return { instruction, market, position, vault };
+}
+
+/**
+ * Build the `create_market` instruction — open a two-sided market over
+ * `(fixture_id, stat_key, period)`. Account order MUST match
+ * `#[derive(Accounts)] CreateMarket` (see program/src/instructions/create_market.rs):
+ *   market (w), vault (r), authority (signer, w), system (r).
+ * The vault is NOT created here (it's a system-owned PDA that first receives
+ * lamports on stake), so it is read-only — Anchor only validates the derivation.
+ * data = disc("create_market") + i64(fixture) + u32(stat) + i32(threshold)
+ *      + u8(comparison) + i32(period), mirroring backend `build_create_market_ix`.
+ */
+export function buildCreateMarketIx(params: {
+  fixtureId: bigint;
+  statKey: number;
+  threshold: number;
+  comparison: Comparison;
+  period: number;
+  authority: PublicKey;
+}): { instruction: TransactionInstruction; market: PublicKey; vault: PublicKey } {
+  const { fixtureId, statKey, threshold, comparison, period, authority } = params;
+  const [market] = marketPda(fixtureId, statKey);
+  const [vault] = vaultPda(market);
+
+  const data = new ByteWriter()
+    .bytes(DISCRIMINATORS.create_market)
+    .i64(fixtureId)
+    .u32(statKey)
+    .i32(threshold)
+    .u8(comparison)
+    .i32(period)
+    .build();
+
+  const instruction = new TransactionInstruction({
+    programId: FORGE_PROGRAM_ID,
+    keys: [
+      { pubkey: market, isSigner: false, isWritable: true },
+      { pubkey: vault, isSigner: false, isWritable: false },
+      { pubkey: authority, isSigner: true, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from(data),
+  });
+
+  return { instruction, market, vault };
 }
 
 /** Map an Anchor custom-error code from a simulation into its program error name. */
