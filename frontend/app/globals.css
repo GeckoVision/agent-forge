@@ -370,6 +370,11 @@
       transparent 70%
     );
 }
+/* When the WebGL canvas renders successfully it fully covers this element.
+   The fog is the no-JS / reduced-motion / no-WebGL2 fallback. */
+.hero-fog-canvas-active .hero-fog {
+  display: none;
+}
 /* ── The hero wordmark (Monolog-style) — the GIANT bottom-anchored brand type
       that IS the hero. Anton, sized to span the viewport; a muted off-white/grey
       crown warming down into the violet brand, its feet dissolving into the

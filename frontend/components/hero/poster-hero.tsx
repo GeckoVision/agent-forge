@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { HeroFlowCanvas } from "@/components/hero/hero-flow-canvas";
+
 /**
  * Monolog-style hero — ONE minimal composition, now with restrained MOTION.
  * A giant bottom-anchored GORILLA wordmark (the hero element) under two
@@ -72,26 +74,32 @@ export function PosterHero() {
   }, []);
 
   return (
-    <section className="relative isolate flex min-h-[84svh] flex-col overflow-hidden border-b border-border/60">
-      {/* ── atmosphere — dark, calm, Monolog-quiet (no column rules, no cards) ── */}
+    <section className="relative isolate flex min-h-[90svh] flex-col overflow-hidden border-b border-border/60">
+      {/* ── atmosphere — Monolog-style flowing light-smoke WebGL shader ── */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        {/* subtle, cinematic purple/gold wash */}
+        {/* WebGL flow canvas: the living base layer (reduced-motion → hides
+            itself and exposes the CSS fog fallback below) */}
+        <HeroFlowCanvas className="absolute inset-0" />
+
+        {/* CSS fog fallback — visible only when canvas is hidden (no WebGL /
+            reduced-motion). Keeps the existing CSS atmosphere intact. */}
+        <div className="hero-fog absolute inset-0" />
+
+        {/* subtle purple/gold overlay wash — sits on top of the canvas,
+            tints and anchors it to the brand palette */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(60% 55% at 50% 20%, color-mix(in oklch, var(--primary) 30%, transparent), transparent 70%), radial-gradient(64% 62% at 82% 112%, color-mix(in oklch, var(--gold) 16%, transparent), transparent 72%), linear-gradient(180deg, color-mix(in oklch, var(--primary) 14%, transparent) 0%, transparent 46%)",
+              "radial-gradient(60% 55% at 50% 20%, color-mix(in oklch, var(--primary) 18%, transparent), transparent 70%), radial-gradient(64% 62% at 82% 112%, color-mix(in oklch, var(--gold) 10%, transparent), transparent 72%)",
           }}
         />
-        {/* the living layer — slow, seamless breathe + drift (gated below) */}
-        <div className="hero-fog hero-fog-animated absolute inset-0" />
-        {/* soft center scrim → seats the copy so it stays legible over the
-            wordmark crown + grain */}
+        {/* soft center scrim → keeps copy legible over the wordmark crown */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(46% 32% at 50% 40%, color-mix(in oklch, black 46%, transparent), transparent 72%)",
+              "radial-gradient(46% 32% at 50% 40%, color-mix(in oklch, black 50%, transparent), transparent 72%)",
           }}
         />
         <div className="hero-vignette absolute inset-0" />
@@ -100,7 +108,7 @@ export function PosterHero() {
 
       {/* ── copy — understated, centered, in the space above the wordmark.
              Reveals on load: fade + rise, H1 then subhead (subtle stagger). ── */}
-      <div className="relative z-20 flex flex-1 items-center justify-center px-4 pt-16 sm:px-6">
+      <div className="relative z-20 flex flex-1 items-center justify-center px-4 pt-12 pb-6 sm:px-6 sm:pt-16">
         <div className="mx-auto max-w-xl text-center [text-shadow:0_1px_22px_rgba(0,0,0,0.5)]">
           <h1
             className="hero-anim-reveal text-balance text-2xl font-semibold leading-snug tracking-tight text-foreground sm:text-3xl"

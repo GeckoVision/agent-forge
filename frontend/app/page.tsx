@@ -56,7 +56,8 @@ export default function HomePage() {
       <HowItWorks />
 
       {/* ── Why it holds up (feature cards) ──────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <section className="border-t border-border">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <p className="eyebrow flex items-center gap-2 text-gold">
           <span aria-hidden className="font-display text-base">
             {"//"}
@@ -67,7 +68,7 @@ export default function HomePage() {
           Three guarantees, all on-chain.
         </h2>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
+        <div className="mt-14 grid gap-4 md:grid-cols-3">
           {FEATURES.map((f) => (
             <Link key={f.title} href={f.href} className="group">
               <Card className="h-full transition-colors hover:border-primary/30 group-hover:bg-card/80">
@@ -91,6 +92,7 @@ export default function HomePage() {
               </Card>
             </Link>
           ))}
+        </div>
         </div>
       </section>
     </>
