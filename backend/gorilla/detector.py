@@ -8,7 +8,7 @@ step turns into a bet.
 
 ``OddsSnapshot`` / ``PriceQuote`` are defined HERE, alongside the detector, so the detection
 logic is a self-contained, dependency-free unit that its tests can exercise without importing
-anything else. The feed (:mod:`agentforge.txline_feed`) produces these types from the wire;
+anything else. The feed (:mod:`gorilla.txline_feed`) produces these types from the wire;
 the detector consumes them.
 """
 

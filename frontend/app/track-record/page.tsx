@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TrackRecord } from "@/components/track/track-record";
 
 export const metadata: Metadata = {
-  title: "Track record · AgentForge Markets",
+  title: "Track record · Gorilla Markets",
   description:
     "The agent's history — every market, outcome and pot — decoded straight from on-chain program accounts on devnet.",
 };

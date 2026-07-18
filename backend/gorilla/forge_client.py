@@ -7,7 +7,7 @@ PDA derivations. The program (``program/programs/forge-markets``) is frozen; thi
 mirrors its wire format as DATA, the same duplication pattern the Rust test crate uses.
 
 Nothing here signs or sends — it only *builds*. The policy-gated wallet
-(:mod:`agentforge.wallets`) signs an :class:`UnsignedTx`; :mod:`agentforge.solana_rpc` moves
+(:mod:`gorilla.wallets`) signs an :class:`UnsignedTx`; :mod:`gorilla.solana_rpc` moves
 bytes. Keeping build/sign/send separate is what lets the whole thing be falsified offline.
 
 The settle path carries the probe's hard-won fixes:
@@ -37,16 +37,14 @@ from .decision import Side
 # ── program identities (frozen; verified deployed + executable on devnet) ────────
 FORGE_PROGRAM_ID = Pubkey.from_string("7Pvo6SEh1zBa1Euvj5QQ4td9GpfsQosTpxhqwWtWUFt6")
 # txoracle CPI target — devnet by default. A mainnet settle build sets
-# AGENTFORGE_TXORACLE_ID to the TxODDS mainnet oracle
+# GORILLA_TXORACLE_ID to the TxODDS mainnet oracle
 # (9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA — verified live + fed, its validate_stat
 # confirmed byte-compatible via a Surfpool mainnet-fork profile), which flips BOTH the CPI
 # target AND the daily_scores_roots PDA derivation so the SAME builder produces a
 # mainnet-correct settle. Devnet default keeps every existing test + the demo unchanged.
 DEVNET_TXORACLE_ID = "6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J"
 MAINNET_TXORACLE_ID = "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA"
-TXORACLE_PROGRAM_ID = Pubkey.from_string(
-    os.environ.get("AGENTFORGE_TXORACLE_ID", DEVNET_TXORACLE_ID)
-)
+TXORACLE_PROGRAM_ID = Pubkey.from_string(os.environ.get("GORILLA_TXORACLE_ID", DEVNET_TXORACLE_ID))
 SYSTEM_PROGRAM_ID = Pubkey.from_string("11111111111111111111111111111111")
 COMPUTE_BUDGET_ID = Pubkey.from_string("ComputeBudget111111111111111111111111111111")
 

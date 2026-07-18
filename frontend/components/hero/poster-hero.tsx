@@ -1,120 +1,137 @@
-import Link from "next/link";
-import { ArrowRight, ExternalLink } from "lucide-react";
+"use client";
 
-import { Button } from "@/components/ui/button";
-import { TrustBadge } from "@/components/hero/trust-badge";
-import { LiveDevnetStats } from "@/components/hero/live-devnet-stats";
-import { HeroMarketCard } from "@/components/hero/hero-market-card";
-import { explorerAddress, FORGE_PROGRAM_ID } from "@/lib/solana/config";
+import { useEffect, useRef } from "react";
 
 /**
- * Sports-poster hero. The z-sandwich, back to front:
- *   z-0  ambient texture (grain + column rules + purple/gold gradient wash)
- *   z-10 oversized compressed ALL-CAPS headline (the "background type")
- *   z-20 the REAL stat card, square-edged, floated clear at the right
- *   z-30 foreground UI — eyebrow, subhead, trust badge, CTAs, live stats
- * The full approved message is preserved for a11y/SEO (sr-only); the visible
- * type is the compressed poster cut of it.
+ * Monolog-style hero — ONE minimal composition, now with restrained MOTION.
+ * A giant bottom-anchored GORILLA wordmark (the hero element) under two
+ * short, centered lines of copy, over a dark, moody, grainy atmosphere. No
+ * eyebrow, no card, no CTA row, no stats bar — those live in the proof section
+ * below.
+ *
+ * The Monolog "essence" is brought over achievably — NO WebGL / video / GSAP:
+ *   1. on-load reveal   — copy fades + rises (subtle stagger); the wordmark
+ *                          rises into place (SplitText-in-spirit). CSS, once.
+ *   2. living atmosphere — the fog breathes + drifts slowly + continuously. CSS.
+ *   3. scroll parallax   — the wordmark drifts at a fraction of the scroll rate
+ *                          (JS sets --parallax-y; rAF-throttled, transform-only).
+ * Every motion is transform/opacity only and gated by prefers-reduced-motion
+ * (see globals.css) → reduced-motion renders the exact static hero. Grain stays
+ * static.
+ *
+ * The z-sandwich, back to front:
+ *   -z-10  atmosphere — subtle purple/gold wash + drifting fog + scrim + vignette + grain
+ *   z-10   the giant wordmark (bottom-anchored, feet dissolving into the grain)
+ *   z-20   the copy (small, centered, legible over everything)
  */
 export function PosterHero() {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Subtle scroll parallax on the wordmark (the Monolog wordmark-as-scroll
+  // element). transform-only, rAF-throttled, and fully disabled under
+  // prefers-reduced-motion — the CSS default (--parallax-y: 0) keeps it static.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let raf = 0;
+
+    const FACTOR = 0.18; // wordmark lags scroll by ~18% → a gentle drift
+    const MAX = 120; // px cap so it never travels too far
+
+    const apply = () => {
+      raf = 0;
+      const y = Math.min(window.scrollY * FACTOR, MAX);
+      el.style.setProperty("--parallax-y", `${y}px`);
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    const enable = () => {
+      apply(); // set initial offset (covers a reload mid-scroll)
+      window.addEventListener("scroll", onScroll, { passive: true });
+    };
+    const disable = () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      el.style.removeProperty("--parallax-y"); // → resting (CSS default 0px)
+    };
+
+    if (!media.matches) enable();
+
+    const onChange = () => (media.matches ? disable() : enable());
+    media.addEventListener("change", onChange);
+
+    return () => {
+      media.removeEventListener("change", onChange);
+      disable();
+    };
+  }, []);
+
   return (
-    <section className="relative isolate overflow-hidden border-b border-border/60">
-      {/* ── z-0 · ambient poster texture — the visible purple gradient wash
-             lives HERE (narrative surface only), never on data surfaces ──── */}
+    <section className="relative isolate flex min-h-[84svh] flex-col overflow-hidden border-b border-border/60">
+      {/* ── atmosphere — dark, calm, Monolog-quiet (no column rules, no cards) ── */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="poster-vgrid absolute inset-0" />
-        {/* purple atmospheric wash across the hero + a gold accent, anchored
-            where the stat card floats — clearly visible on the lighter base */}
+        {/* subtle, cinematic purple/gold wash */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "radial-gradient(60% 72% at 80% 30%, color-mix(in oklch, var(--primary) 44%, transparent), transparent 70%), radial-gradient(52% 60% at 94% 98%, color-mix(in oklch, var(--gold) 26%, transparent), transparent 72%), linear-gradient(158deg, color-mix(in oklch, var(--primary) 24%, transparent) 0%, transparent 48%)",
+              "radial-gradient(60% 55% at 50% 20%, color-mix(in oklch, var(--primary) 30%, transparent), transparent 70%), radial-gradient(64% 62% at 82% 112%, color-mix(in oklch, var(--gold) 16%, transparent), transparent 72%), linear-gradient(180deg, color-mix(in oklch, var(--primary) 14%, transparent) 0%, transparent 46%)",
           }}
         />
-        <div className="poster-grain absolute inset-0" />
+        {/* the living layer — slow, seamless breathe + drift (gated below) */}
+        <div className="hero-fog hero-fog-animated absolute inset-0" />
+        {/* soft center scrim → seats the copy so it stays legible over the
+            wordmark crown + grain */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(46% 32% at 50% 40%, color-mix(in oklch, black 46%, transparent), transparent 72%)",
+          }}
+        />
+        <div className="hero-vignette absolute inset-0" />
+        <div className="poster-grain poster-grain-strong absolute inset-0" />
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pt-16 pb-16 sm:px-6 sm:pt-24">
-        {/* eyebrow — gold slash detail, top-left */}
-        <p className="eyebrow flex items-center gap-2 text-muted-foreground">
-          <span aria-hidden className="font-display text-base text-gold">
-            {"//"}
-          </span>
-          Superteam × TxODDS · Prediction Markets &amp; Settlement
-        </p>
-
-        {/* ── the poster stack ─────────────────────────────────────────── */}
-        <div className="relative mt-5">
+      {/* ── copy — understated, centered, in the space above the wordmark.
+             Reveals on load: fade + rise, H1 then subhead (subtle stagger). ── */}
+      <div className="relative z-20 flex flex-1 items-center justify-center px-4 pt-16 sm:px-6">
+        <div className="mx-auto max-w-xl text-center [text-shadow:0_1px_22px_rgba(0,0,0,0.5)]">
           <h1
-            className="poster-headline relative z-10"
-            style={{
-              color: "color-mix(in oklch, var(--foreground) 88%, var(--primary))",
-            }}
+            className="hero-anim-reveal text-balance text-2xl font-semibold leading-snug tracking-tight text-foreground sm:text-3xl"
+            style={{ animationDelay: "0.05s" }}
           >
-            <span className="sr-only">
-              Bet on sports — and actually get paid.
-            </span>
-            <span aria-hidden>
-              <span className="block">Bet on</span>
-              <span className="block">Sports —</span>
-              <span className="text-gradient-gold block">Get paid</span>
-            </span>
+            You won the bet. Getting paid shouldn&apos;t be the hard part.
           </h1>
-
-          {/* the real stat card — floated at the RIGHT, clear of the type so no
-              letter of "BET ON / SPORTS / GET PAID" is obscured. It nests into
-              the right whitespace beside the headline; stacks below on < lg. */}
-          <div className="relative z-20 mx-auto mt-10 w-full max-w-sm lg:absolute lg:top-1/2 lg:right-0 lg:mt-0 lg:-translate-y-1/2">
-            <HeroMarketCard />
-          </div>
-        </div>
-
-        {/* ── z-30 · foreground UI ──────────────────────────────────────── */}
-        <div className="relative z-30 mt-12 max-w-2xl lg:mt-14">
-          <p className="body-l text-muted-foreground text-pretty">
-            An AI places the bets. When the match ends, the official data pays
-            the winners automatically — on-chain. No bookie decides who won, and
-            no company can sit on your money.
+          <p
+            className="hero-anim-reveal mx-auto mt-5 max-w-md text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
+            style={{ animationDelay: "0.2s" }}
+          >
+            Gorilla settles it on-chain — the match data pays the winners
+            automatically. No bookie, no excuses.
           </p>
-
-          <div className="mt-8 flex flex-col items-start gap-5">
-            <TrustBadge className="rounded-none" />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button asChild size="lg" className="rounded-none">
-                <Link href="/settlement">
-                  See a settlement
-                  <ArrowRight />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="rounded-none"
-              >
-                <Link href="/agent">Watch the agent</Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="ghost"
-                className="rounded-none"
-              >
-                <a
-                  href={explorerAddress(FORGE_PROGRAM_ID.toBase58(), "devnet")}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View program on Solana
-                  <ExternalLink />
-                </a>
-              </Button>
-            </div>
-          </div>
         </div>
+      </div>
 
-        <LiveDevnetStats className="relative z-30 mt-12" />
+      {/* ── the hero element — giant GORILLA, bottom-anchored, feet bleeding
+             off the bottom / dissolving into grain. Decorative (the brand is
+             already the nav wordmark + the copy's H1); centered, its own
+             overflow-hidden keeps any side-bleed from ever widening the page and
+             clips the on-load rise. The track carries the scroll parallax; the
+             span carries the on-load rise + resting translateY(12%). ── */}
+      <div
+        ref={trackRef}
+        aria-hidden
+        className="hero-wordmark-track relative z-10 flex w-full justify-center overflow-hidden"
+      >
+        <span className="hero-wordmark hero-anim-rise block select-none">
+          Gorilla
+        </span>
       </div>
     </section>
   );

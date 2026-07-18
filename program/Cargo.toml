@@ -16,7 +16,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/agentforge-markets/agent-forge"
+repository = "https://github.com/GeckoVision/agent-forge"
 
 [profile.release]
 overflow-checks = true

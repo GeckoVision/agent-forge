@@ -1,4 +1,4 @@
-# AgentForge Markets — Technical Documentation
+# Gorilla Markets — Technical Documentation
 
 ## Core idea
 
@@ -31,7 +31,7 @@ Two problems, both solved and proven on devnet:
 | Layer | Path | Role |
 |---|---|---|
 | On-chain | `program/` | `forge_markets` (Anchor 1.0): `create_market` / `stake` / `settle` / `claim`. `settle` CPIs the oracle; a bad proof reverts. |
-| Agent | `backend/agentforge/` | feed → detector → decision (risk policy) → policy-gated wallet → settle-by-proof → claim. One code path, recorded ($0) and live. |
+| Agent | `backend/gorilla/` | feed → detector → decision (risk policy) → policy-gated wallet → settle-by-proof → claim. One code path, recorded ($0) and live. |
 | Frontend | `frontend/` | Next.js + shadcn/ui. The **Merkle-proof viewer** visualizes settlement: the proof folding up into TxODDS's committed on-chain root. |
 
 ## Deployed (devnet)
@@ -44,6 +44,6 @@ Two problems, both solved and proven on devnet:
 
 ```bash
 cd backend && uv sync && uv run pytest        # 101 tests, offline, $0
-uv run python -m agentforge                   # the agent loop, recorded
+uv run python -m gorilla                   # the agent loop, recorded
 cd ../frontend && pnpm install && pnpm dev     # the UI on devnet
 ```

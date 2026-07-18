@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agentforge.wallet import (
+from gorilla.wallet import (
     Policy,
     PolicyViolation,
     SandboxWallet,

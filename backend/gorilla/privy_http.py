@@ -1,13 +1,13 @@
 """Shared low-level Privy REST primitives — one source of truth for the Privy seam.
 
-Both the custody wallet (:mod:`agentforge.wallets`) and the policy control-plane
-(:mod:`agentforge.privy_policy`) talk to ``api.privy.io`` through here, so the auth header
+Both the custody wallet (:mod:`gorilla.wallets`) and the policy control-plane
+(:mod:`gorilla.privy_policy`) talk to ``api.privy.io`` through here, so the auth header
 shape, the User-Agent, the credential loading, and the secret-redaction all live in ONE place.
 
 Two hard rules this module enforces:
 
 * **A real User-Agent.** Privy sits behind Cloudflare, which 403-bans the stdlib default
-  ``Python-urllib/*``. Every request carries ``agentforge/<v>`` so the live call is not shadow-
+  ``Python-urllib/*``. Every request carries ``gorilla/<v>`` so the live call is not shadow-
   banned. This is exactly the "stubbed-but-shipped fails live" trap (Pattern B) — so
   :func:`rpc_headers` is a pure function a unit test falsifies offline.
 * **The app secret never leaks.** It is Basic-auth-encoded into the ``Authorization`` header and
@@ -30,7 +30,7 @@ from typing import Any, Callable
 # ── constants (Privy-wide; imported by wallets.py + privy_policy.py) ──────────────
 PRIVY_BASE = "https://api.privy.io"
 # Cloudflare 403-bans Python-urllib/*; send a real product UA. Bump with the package version.
-PRIVY_USER_AGENT = "agentforge/1.0"
+PRIVY_USER_AGENT = "gorilla/1.0"
 # Solana devnet genesis (CAIP-2). Devnet-only — mirrors SolanaRpc's mainnet refusal. Privy uses
 # this to route signAndSendTransaction to devnet, so a mainnet caip2 is a bug, never a config.
 PRIVY_SOLANA_DEVNET_CAIP2 = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
@@ -51,9 +51,9 @@ class PrivyError(Exception):
 
 def _env_file() -> Path:
     """The optional local ``.env`` fallback for creds not exported in the process env.
-    Overridable with ``AGENTFORGE_ENV_FILE``; defaults to a repo-local ``.env`` (gitignored).
+    Overridable with ``GORILLA_ENV_FILE``; defaults to a repo-local ``.env`` (gitignored).
     Never required — an exported env var always wins, so this is a dev convenience, not a dep."""
-    override = os.environ.get("AGENTFORGE_ENV_FILE")
+    override = os.environ.get("GORILLA_ENV_FILE")
     if override:
         return Path(override).expanduser()
     return Path(__file__).resolve().parent.parent / ".env"

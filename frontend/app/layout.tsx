@@ -30,7 +30,7 @@ const anton = Anton({
 });
 
 export const metadata: Metadata = {
-  title: "AgentForge Markets — Trustless agent-settled prediction markets",
+  title: "Gorilla Markets — Trustless agent-settled prediction markets",
   description:
     "Autonomous agents bet on live sports; every outcome settles by the data provider's own on-chain Merkle proof. The program never calls the result.",
 };

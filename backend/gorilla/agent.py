@@ -1,4 +1,4 @@
-"""The AgentForge single agent — read odds, detect a sharp move, decide a bet, sign it.
+"""The Gorilla single agent — read odds, detect a sharp move, decide a bet, sign it.
 
 Deterministic and offline. The loop takes a sequence of ``OddsSnapshot`` readings (from the
 feed's offline ``replay`` or, live, repeated ``TxlineFeed.odds`` polls), runs the detector,
@@ -103,13 +103,13 @@ def demo() -> int:
     """$0 offline smoke: prove the odds call is first-call-correct, then run the loop on a
     scripted moving market and show the policy-gated bet. No key, no network.
 
-        uv run python -m agentforge
+        uv run python -m gorilla
     """
     from .txline_feed import TxlineFeed, replay
     from .wallet import Policy, SandboxWallet
 
     rule = "─" * 68
-    print(f"{rule}\n  AgentForge Markets — offline agent core ($0, no key, no network)\n{rule}")
+    print(f"{rule}\n  Gorilla Markets — offline agent core ($0, no key, no network)\n{rule}")
 
     # 1 · one real odds read, first-call-correct (recorded / $0).
     feed = TxlineFeed()

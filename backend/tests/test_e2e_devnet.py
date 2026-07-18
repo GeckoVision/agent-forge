@@ -1,9 +1,9 @@
 """Live devnet settlement e2e — the FINAL smoke, opt-in only.
 
-Skipped unless ``AGENTFORGE_LIVE_E2E=1`` so a bare ``pytest`` never touches the network (the
+Skipped unless ``GORILLA_LIVE_E2E=1`` so a bare ``pytest`` never touches the network (the
 offline suites in test_forge_client / test_wallets are the debugger; this is the confirmation).
 
-    AGENTFORGE_LIVE_E2E=1 uv run pytest tests/test_e2e_devnet.py -q -s
+    GORILLA_LIVE_E2E=1 uv run pytest tests/test_e2e_devnet.py -q -s
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("AGENTFORGE_LIVE_E2E") != "1",
-    reason="live devnet e2e is opt-in (set AGENTFORGE_LIVE_E2E=1)",
+    os.environ.get("GORILLA_LIVE_E2E") != "1",
+    reason="live devnet e2e is opt-in (set GORILLA_LIVE_E2E=1)",
 )
 
 _HERE = Path(__file__).resolve().parent
@@ -25,10 +25,10 @@ PROOF_PATH = _HERE.parent / "scripts" / "fixtures" / "recorded_stat_proof.json"
 
 
 def test_live_settlement_settles_yes_and_pays_the_winner():
-    from agentforge.forge_client import load_recorded_proof
-    from agentforge.settlement import FORGE_BINDINGS, run_settlement
-    from agentforge.solana_rpc import SolanaRpc
-    from agentforge.wallets import (
+    from gorilla.forge_client import load_recorded_proof
+    from gorilla.settlement import FORGE_BINDINGS, run_settlement
+    from gorilla.solana_rpc import SolanaRpc
+    from gorilla.wallets import (
         ChainPolicy,
         LocalDevnetWallet,
         fund_if_low,

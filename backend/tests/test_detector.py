@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agentforge.detector import OddsSnapshot, PriceQuote, SharpDetector, SharpMove
+from gorilla.detector import OddsSnapshot, PriceQuote, SharpDetector, SharpMove
 
 
 def _snap(pct: dict[str, float], *, ts: int = 1000, book_id: int = 7) -> OddsSnapshot:

@@ -1,6 +1,6 @@
 # forge-markets — on-chain trustless prediction escrow (Anchor 1.0, devnet)
 
-`forge_markets` is the settlement half of AgentForge Markets: a two-sided
+`forge_markets` is the settlement half of Gorilla Markets: a two-sided
 prediction escrow over one TxODDS fixture stat. **The program never decides an
 outcome.** `settle` CPIs `txoracle::validate_stat`; the oracle proves the stat
 against its own on-chain Merkle root and evaluates the market's stored predicate.

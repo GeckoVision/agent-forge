@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AgentDashboard } from "@/components/agent/agent-dashboard";
 
 export const metadata: Metadata = {
-  title: "Agent · AgentForge Markets",
+  title: "Agent · Gorilla Markets",
   description:
     "Watch the agent read live odds, detect a sharp move, decide a bet, and sign inside a custody policy it cannot exceed.",
 };

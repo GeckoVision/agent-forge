@@ -19,7 +19,7 @@ transactions is safe — the fork is not real mainnet. Prereqs: a running fork w
 `forge_markets` (mainnet-oracle build) deployed and the authority funded — see
 scripts/surfpool_rehearse.sh.
 
-    AGENTFORGE_TXORACLE_ID=9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA \
+    GORILLA_TXORACLE_ID=9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA \
         uv run python scripts/profile_surfpool.py
 """
 
@@ -37,15 +37,15 @@ from pathlib import Path
 from typing import Any
 
 # The fork is the TxODDS mainnet oracle rehearsal target: pin the builder to the mainnet id
-# BEFORE importing agentforge (forge_client resolves the id at import). Overridable via env.
-os.environ.setdefault("AGENTFORGE_TXORACLE_ID", "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA")
+# BEFORE importing gorilla (forge_client resolves the id at import). Overridable via env.
+os.environ.setdefault("GORILLA_TXORACLE_ID", "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA")
 
 from solders.hash import Hash  # noqa: E402
 from solders.keypair import Keypair  # noqa: E402
 from solders.pubkey import Pubkey  # noqa: E402
 from solders.transaction import Transaction  # noqa: E402
 
-from agentforge.forge_client import (  # noqa: E402
+from gorilla.forge_client import (  # noqa: E402
     TXORACLE_PROGRAM_ID,
     UnsignedTx,
     claim_tx,
@@ -264,7 +264,7 @@ def main() -> int:
 
     # settle correctness: the market must have settled Yes (the oracle certified the predicate).
     data = rpc("getAccountInfo", [str(market), {"encoding": "base64"}])["result"]["value"]
-    from agentforge.forge_client import decode_market
+    from gorilla.forge_client import decode_market
 
     m = decode_market(base64.b64decode(data["data"][0]))
     print("-" * 78)
@@ -286,7 +286,7 @@ def main() -> int:
 def _cu_limit(tx: UnsignedTx) -> int:
     """The SetComputeUnitLimit units in a tx's prelude (for the priority-fee estimate), or the
     Solana default 200k per instruction when unset."""
-    from agentforge.forge_client import COMPUTE_BUDGET_ID
+    from gorilla.forge_client import COMPUTE_BUDGET_ID
 
     for ix in tx.instructions:
         if ix.program_id == COMPUTE_BUDGET_ID and ix.data and ix.data[0] == 2:

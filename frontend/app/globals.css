@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  AgentForge Markets — stark-editorial, purple identity.
+  Gorilla Markets — stark-editorial, purple identity.
   Cool near-black ink background, cool off-white text, one vivid VIOLET brand
   accent (#8B5CF6). Verdict colors stay literal: green = YES/win, red = NO/loss,
   ochre = the pot. A distant cousin of the source system, its own purple face.
@@ -277,6 +277,212 @@
 .poster-grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: 0.045;
+}
+/* Moodier grain for the cinematic hero atmosphere (reuses the .poster-grain
+   image; only lifts the film density). Still static / reduced-motion-safe. */
+.poster-grain-strong {
+  opacity: 0.08;
+}
+
+/* ── Monolog-inspired footer texture (marketing surface only) ───────────────
+      A self-contained DITHERED DUNE rising from the footer's bottom edge — no
+      external asset. Two offset dot-fields (a fine + a coarse frequency = the
+      "dithered" read), desaturated to near-monochrome via the foreground token,
+      masked into an organic two-crest wave. STATIC by construction: no
+      animation, honours reduced-motion with nothing to disable. Pair with
+      `.footer-bleed` — a soft violet glow at the crest (the "purple bleed" that
+      lifts the greyscale halftone). */
+.footer-halftone {
+  background-image:
+    radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--foreground) 34%, transparent) 1px,
+      transparent 1.9px
+    ),
+    radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--foreground) 20%, transparent) 1.1px,
+      transparent 2px
+    );
+  background-size:
+    8px 8px,
+    13px 13px;
+  background-position:
+    0 0,
+    4px 6px;
+  /* organic dune crest = union (default mask-composite) of two bottom-anchored
+     ellipses at different x — dense at the floor, dissolving upward. */
+  -webkit-mask-image:
+    radial-gradient(125% 82% at 30% 132%, #000 42%, transparent 74%),
+    radial-gradient(120% 74% at 76% 136%, #000 38%, transparent 72%);
+  mask-image:
+    radial-gradient(125% 82% at 30% 132%, #000 42%, transparent 74%),
+    radial-gradient(120% 74% at 76% 136%, #000 38%, transparent 72%);
+}
+.footer-bleed {
+  background:
+    radial-gradient(
+      82% 120% at 32% 128%,
+      color-mix(in oklch, var(--primary) 30%, transparent),
+      transparent 66%
+    ),
+    radial-gradient(
+      64% 108% at 78% 132%,
+      color-mix(in oklch, var(--primary) 16%, transparent),
+      transparent 64%
+    );
+}
+
+/* Giant baseline wordmark — Anton, sized to the viewport so it never overflows;
+   its feet dissolve into the dune via a soft bottom mask (emerging-from-texture).
+   Bottom-left of the footer, paired with the bracketed tagline bottom-right. */
+.footer-wordmark {
+  font-family: var(--font-anton), var(--font-geist-sans), sans-serif;
+  font-size: clamp(3rem, 13vw, 8rem);
+  line-height: 0.8;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  -webkit-mask-image: linear-gradient(to bottom, #000 66%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 66%, transparent 100%);
+}
+
+/* ── Hero cinematic atmosphere (narrative surface only) ─────────────────────
+      A vignette (darkened frame → the headline pops) + a soft violet/gold fog,
+      layered UNDER the existing purple/gold wash. Decorative, static. */
+.hero-vignette {
+  background: radial-gradient(
+    120% 92% at 50% 38%,
+    transparent 54%,
+    color-mix(in oklch, black 44%, transparent) 100%
+  );
+}
+.hero-fog {
+  background:
+    radial-gradient(
+      55% 46% at 18% 92%,
+      color-mix(in oklch, var(--primary) 20%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      40% 40% at 88% 8%,
+      color-mix(in oklch, var(--gold) 12%, transparent),
+      transparent 70%
+    );
+}
+/* ── The hero wordmark (Monolog-style) — the GIANT bottom-anchored brand type
+      that IS the hero. Anton, sized to span the viewport; a muted off-white/grey
+      crown warming down into the violet brand, its feet dissolving into the
+      grain via a soft bottom mask. High presence, but calm. STATIC /
+      reduced-motion-safe. Centered; any side-bleed is clipped by the hero's
+      overflow-hidden, so a full-bleed poster crop never causes page overflow. */
+.hero-wordmark {
+  font-family: var(--font-anton), var(--font-geist-sans), sans-serif;
+  font-size: clamp(3.25rem, 20.5vw, 15rem);
+  line-height: 0.8;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* resting offset — feet bleed off the bottom crop. Baked in (was the
+     `translate-y-[12%]` utility) so the on-load rise and reduced-motion both
+     settle on this exact position, with no `translate` vs `transform` clash. */
+  transform: translateY(12%);
+  background: linear-gradient(
+    178deg,
+    color-mix(in oklch, var(--foreground) 80%, var(--primary)) 2%,
+    color-mix(in oklch, var(--primary) 90%, white) 58%,
+    var(--primary) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* feet dissolve into the grain toward the bottom crop */
+  -webkit-mask-image: linear-gradient(to bottom, #000 56%, transparent 97%);
+  mask-image: linear-gradient(to bottom, #000 56%, transparent 97%);
+}
+
+/* ── Hero motion (narrative surface only) ───────────────────────────────────
+      The Monolog "essence" brought over achievably in Next.js — NO WebGL /
+      video / GSAP. Three restrained moves, transform/opacity only (no layout
+      thrash), each fully gated by prefers-reduced-motion (see block below), so
+      reduced-motion renders the EXACT static hero. The grain stays static.
+        1. on-load reveal — copy fades + rises with a subtle stagger; the giant
+           wordmark rises into place (SplitText-in-spirit).
+        2. living atmosphere — the fog breathes + drifts, slowly + seamlessly.
+        3. scroll parallax — the wordmark track drifts at a fraction of scroll
+           (JS sets --parallax-y; default 0 ⇒ no-JS / reduced-motion = static). */
+
+@keyframes hero-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* copy (H1 + subhead) — per-element animation-delay supplies the stagger */
+.hero-anim-reveal {
+  animation: hero-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(12%); /* == .hero-wordmark resting transform */
+  }
+}
+.hero-anim-rise {
+  animation: hero-rise 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+/* seamless breathe + drift (0% == 100%); scale stays ≥1.05 so the soft fog
+   never reveals a hard edge. Very slow + small = lives without distracting. */
+@keyframes hero-fog-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(2.5%, -2%, 0) scale(1.12);
+  }
+}
+.hero-fog-animated {
+  animation: hero-fog-drift 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+.hero-wordmark-track {
+  transform: translate3d(0, var(--parallax-y, 0px), 0);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Mandatory gate: kill every hero motion and pin each element to its resting
+     state → byte-for-byte the current static hero, with no first-paint flash. */
+  .hero-anim-reveal,
+  .hero-anim-rise,
+  .hero-fog-animated {
+    animation: none !important;
+  }
+  .hero-anim-reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-anim-rise {
+    opacity: 1; /* transform resting = translateY(12%) from .hero-wordmark */
+  }
+  .hero-fog-animated {
+    transform: none;
+  }
+  .hero-wordmark-track {
+    transform: none;
+  }
 }
 
 /* ── Reusable surface / text helpers ── */

@@ -9,7 +9,7 @@ DEVNET-ONLY. The funder is the deploy authority; stakers are throwaway keypairs 
 A passing settle CONFIRMS the oracle returns Ok(bool) as the program's 1-byte decoder expects;
 if it ever differed, settle fails CLOSED (funds safe) and the on-wire bytes are reported.
 
-    # from backend/ (so ``agentforge`` is importable):
+    # from backend/ (so ``gorilla`` is importable):
     PYTHONPATH=. uv run python scripts/e2e_settlement.py            # canonical run
     PYTHONPATH=. uv run python scripts/e2e_settlement.py --nonce 1  # fresh re-run
 """
@@ -21,10 +21,10 @@ from pathlib import Path
 
 from solders.keypair import Keypair
 
-from agentforge.forge_client import load_recorded_proof
-from agentforge.settlement import FORGE_BINDINGS, SettlementResult, run_settlement
-from agentforge.solana_rpc import SolanaRpc
-from agentforge.wallets import (
+from gorilla.forge_client import load_recorded_proof
+from gorilla.settlement import FORGE_BINDINGS, SettlementResult, run_settlement
+from gorilla.solana_rpc import SolanaRpc
+from gorilla.wallets import (
     ChainPolicy,
     LocalDevnetWallet,
     fund_if_low,
@@ -61,7 +61,7 @@ def main() -> int:
     fixture_id = BASE_FIXTURE_ID + args.nonce
     rule = "=" * 78
     print(rule)
-    print("AgentForge — live on-chain settlement loop (devnet, real TxODDS proof)")
+    print("Gorilla — live on-chain settlement loop (devnet, real TxODDS proof)")
     print(rule)
 
     rpc = SolanaRpc()

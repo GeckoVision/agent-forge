@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agentforge.decision import BetIntent, RiskPolicy, decide
-from agentforge.detector import SharpMove
+from gorilla.decision import BetIntent, RiskPolicy, decide
+from gorilla.detector import SharpMove
 
 
 def _move(delta: float, *, outcome: str = "Home") -> SharpMove:

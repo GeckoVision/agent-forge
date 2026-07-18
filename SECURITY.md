@@ -1,6 +1,6 @@
-# Security Policy — AgentForge Markets
+# Security Policy — Gorilla Markets
 
-AgentForge Markets is a **devnet-only** research project: trustless, agent-settled
+Gorilla Markets is a **devnet-only** research project: trustless, agent-settled
 prediction markets on Solana, where every outcome settles against the data
 provider's own on-chain Merkle proof. This document is the disclosure policy
 referenced by the program's embedded on-chain `security.txt`.
@@ -40,7 +40,7 @@ reproduction steps or a proof-of-concept transaction (devnet signatures welcome)
 
 ## Bounty
 
-As a devnet-only research project that custodies no real value, AgentForge Markets
+As a devnet-only research project that custodies no real value, Gorilla Markets
 does **not** operate a paid bug-bounty program. Verified reports will be credited
 in the acknowledgements at our discretion.
 

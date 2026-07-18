@@ -39,7 +39,7 @@ export function Wordmark({ className }: { className?: string }) {
     <span className={cn("flex items-center gap-2", className)}>
       <Logo />
       <span className="text-[15px] font-semibold tracking-tight">
-        AgentForge
+        Gorilla
         <span className="text-muted-foreground"> Markets</span>
       </span>
     </span>

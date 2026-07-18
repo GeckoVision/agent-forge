@@ -1,6 +1,6 @@
 """On-chain policy-gated wallets — the custody boundary, on devnet.
 
-Two drop-ins behind the offline core's :class:`~agentforge.wallet.WalletSeam` (same
+Two drop-ins behind the offline core's :class:`~gorilla.wallet.WalletSeam` (same
 ``funded`` / ``authorize`` / ``sign_within_policy``), so the agent loop is unchanged whether
 it signs against a sandbox, a local devnet key, or a Privy TEE wallet:
 
@@ -20,7 +20,7 @@ off-allow-list, or a mismatched transaction is refused with :class:`PolicyViolat
 signature is ever produced. This is the trustless-custody half of the demo: the agent
 describes intent, the wallet decides what it will sign.
 
-DEVNET-ONLY (enforced by :class:`~agentforge.solana_rpc.SolanaRpc`).
+DEVNET-ONLY (enforced by :class:`~gorilla.solana_rpc.SolanaRpc`).
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ class OnChainError(Exception):
 @dataclass(frozen=True)
 class ChainPolicy(Policy):
     """The on-chain policy the user authorizes once. Extends the offline
-    :class:`~agentforge.wallet.Policy` (spend cap + purpose allow-list) with the
+    :class:`~gorilla.wallet.Policy` (spend cap + purpose allow-list) with the
     ``purpose -> (program_id, instruction)`` binding an on-chain wallet needs — so a
     whitelisted purpose can only ever drive the exact program + instruction it names.
 

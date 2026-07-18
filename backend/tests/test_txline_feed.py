@@ -1,4 +1,4 @@
-"""AgentForge feed — typed odds, recorded/$0, the live transport edge, and the replay.
+"""Gorilla feed — typed odds, recorded/$0, the live transport edge, and the replay.
 
 Offline by default: ``odds`` runs in recorded mode (a schema-shaped placeholder) and ``replay``
 is pure scripting. The live path is exercised through an injected transport, so no test touches
@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-import agentforge
-from agentforge.detector import OddsSnapshot, SharpDetector
-from agentforge.txline_feed import (
+import gorilla
+from gorilla.detector import OddsSnapshot, SharpDetector
+from gorilla.txline_feed import (
     _ODDS_SNAPSHOT_OP,
     _SPEC,
     FeedError,
@@ -132,7 +132,7 @@ def test_live_read_types_the_real_wire_via_injected_transport():
     assert snap.fixture_id == 42 and snap.ts == 1700
     assert snap.quotes[0].pct == {"Home": 55.0, "Away": 45.0}
     assert captured["url"] == "https://txline.txodds.com/api/odds/snapshot/42"
-    assert captured["headers"]["User-Agent"] == "agentforge/1.0"  # not the banned urllib default
+    assert captured["headers"]["User-Agent"] == "gorilla/1.0"  # not the banned urllib default
 
 
 def test_live_read_injects_session_auth_headers():
@@ -151,7 +151,7 @@ def test_live_read_injects_session_auth_headers():
     TxlineFeed(mode="live", transport=fake_transport, session=FakeSession()).odds(42)
     assert seen["Authorization"] == "Bearer jwt"
     assert seen["X-Api-Token"] == "tok"
-    assert seen["User-Agent"] == "agentforge/1.0"
+    assert seen["User-Agent"] == "gorilla/1.0"
 
 
 def test_live_non_200_raises_without_leaking_auth():
@@ -202,8 +202,8 @@ def test_feed_package_is_fully_self_contained():
     import ast
     import sys
 
-    package_dir = Path(agentforge.__file__).resolve().parent
-    allowed = set(sys.stdlib_module_names) | {"agentforge", "solders", "__future__"}
+    package_dir = Path(gorilla.__file__).resolve().parent
+    allowed = set(sys.stdlib_module_names) | {"gorilla", "solders", "__future__"}
     offenders: list[str] = []
     for source in sorted(package_dir.rglob("*.py")):
         tree = ast.parse(source.read_text(encoding="utf-8"))

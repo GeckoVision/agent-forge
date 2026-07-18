@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rehearse the AgentForge on-chain loop against a Surfpool MAINNET FORK — no broadcast.
+# Rehearse the Gorilla on-chain loop against a Surfpool MAINNET FORK — no broadcast.
 #
 # One command: builds the mainnet-oracle `forge_markets` program, starts a fresh Surfpool
 # fork of Solana mainnet (real mainnet accounts pulled on demand — the TxODDS oracle + its
@@ -68,7 +68,7 @@ solana program deploy "$SO_MAINNET" \
   --url "$FORK_RPC" 2>&1 | sed 's/^/   /'
 
 echo "== 4/4  profile the loop under mainnet params (NO broadcast) =="
-AGENTFORGE_TXORACLE_ID="$MAINNET_ORACLE" PYTHONPATH="$BACKEND" \
+GORILLA_TXORACLE_ID="$MAINNET_ORACLE" PYTHONPATH="$BACKEND" \
   "$BACKEND/.venv/bin/python" "$BACKEND/scripts/profile_surfpool.py"
 
 echo

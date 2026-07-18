@@ -2,7 +2,7 @@
 
 This is the SERVER-SIDE half of the custody boundary: a policy enforced inside Privy's TEE (and
 at its API tier for value caps) so the enclave itself refuses an out-of-policy signature — the
-belt to the client-side :class:`~agentforge.wallets.ChainPolicy` braces. The demo's policy:
+belt to the client-side :class:`~gorilla.wallets.ChainPolicy` braces. The demo's policy:
 
 * a per-transaction **max-SOL cap** (default 0.05 SOL) on System-Program transfers, expressed as
   a ``DENY`` rule (``Transfer.lamports gt cap``) — a DENY, not an ``ALLOW lte``, because Privy
@@ -61,7 +61,7 @@ def _check_name(kind: str, name: str) -> None:
 
 def build_forge_markets_policy(
     *,
-    name: str = "agentforge-forge-markets-devnet",
+    name: str = "gorilla-forge-markets-devnet",
     cap_lamports: int = DEFAULT_MAX_LAMPORTS,
     allowed_program_ids: tuple[str, ...] = DEFAULT_ALLOWED_PROGRAM_IDS,
 ) -> dict[str, Any]:

@@ -1,6 +1,6 @@
-# AgentForge Markets — web
+# Gorilla Markets — web
 
-The Demo-Day surface for AgentForge Markets: a dark, modern web app that
+The Demo-Day surface for Gorilla Markets: a dark, modern web app that
 visualises the full devnet flow — an autonomous agent reading odds, betting under
 a policy it can't exceed, and a market settled by TxODDS's own on-chain Merkle
 proof. It reads **real devnet state** from the deployed `forge_markets` program.

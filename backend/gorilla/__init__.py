@@ -1,4 +1,4 @@
-"""AgentForge Markets — the offline core of the single prediction agent.
+"""Gorilla Markets — the offline core of the single prediction agent.
 
 Read verifiable World Cup odds -> detect a sharp move -> decide a policy-bounded bet ->
 sign it through a pluggable, policy-gated wallet seam. Deterministic and falsifiable offline
@@ -6,7 +6,7 @@ sign it through a pluggable, policy-gated wallet seam. Deterministic and falsifi
 wallet) behind the same seams.
 
 The public surface is re-exported here so consumers (and the on-chain chunk) import from one
-place: ``from agentforge import BetIntent, WalletSeam, TxlineFeed`` and friends.
+place: ``from gorilla import BetIntent, WalletSeam, TxlineFeed`` and friends.
 """
 
 from __future__ import annotations

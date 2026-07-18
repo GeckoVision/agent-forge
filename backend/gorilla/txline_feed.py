@@ -1,9 +1,9 @@
-"""AgentForge odds feed — verifiable real-time World Cup odds, first call correct.
+"""Gorilla odds feed — verifiable real-time World Cup odds, first call correct.
 
 A direct, self-contained TxLINE odds reader. It owns the whole path from the wire to a typed
 ``OddsSnapshot`` with no external integration layer: it reads the TxLINE OpenAPI spec that ships
 in ``spec/`` to learn the endpoint, calls it, and parses the response itself. Everything here is
-AgentForge-branded and stdlib-only (``urllib``).
+Gorilla-branded and stdlib-only (``urllib``).
 
 Two modes, one code path — they diverge only at the transport edge:
 
@@ -36,7 +36,7 @@ _SPEC = Path(__file__).resolve().parent / "spec" / "txline_openapi.yaml"
 _ODDS_SNAPSHOT_OP = "getApiOddsSnapshotFixtureid"
 # TxLINE sits behind Cloudflare, which 403-bans the stdlib default ``Python-urllib/*``; send a
 # real product UA (learned the hard way). Mirrors privy_http's PRIVY_USER_AGENT rule.
-_USER_AGENT = "agentforge/1.0"
+_USER_AGENT = "gorilla/1.0"
 _TIMEOUT = 30
 # Loopback host NAMES an IP-literal check can't catch (a private IP literal is caught directly).
 _BLOCKED_HOSTNAMES = frozenset({"localhost"})
@@ -229,7 +229,7 @@ def _placeholder_payloads(fixture_id: int) -> list[Mapping[str, Any]]:
 
 
 class TxlineFeed:
-    """AgentForge's typed odds feed — a direct, self-contained TxLINE reader.
+    """Gorilla's typed odds feed — a direct, self-contained TxLINE reader.
 
     Recorded / $0 (the default) synthesizes a schema-shaped placeholder offline; ``mode="live"``
     does a real ``urllib`` GET to the TxLINE odds endpoint. The HTTP ``transport`` and the auth

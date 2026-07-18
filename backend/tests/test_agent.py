@@ -5,16 +5,16 @@ Light fakes only (an injected scripted feed + a SandboxWallet); no network, no m
 
 from __future__ import annotations
 
-from agentforge.agent import (
+from gorilla.agent import (
     BET_PURPOSE,
     RefusedBet,
     SignedBet,
     run_agent,
     to_tx_intent,
 )
-from agentforge.decision import BetIntent, RiskPolicy
-from agentforge.txline_feed import replay
-from agentforge.wallet import Policy, SandboxWallet
+from gorilla.decision import BetIntent, RiskPolicy
+from gorilla.txline_feed import replay
+from gorilla.wallet import Policy, SandboxWallet
 
 _RISK = RiskPolicy(max_stake=10.0, max_per_fixture=25.0)
 

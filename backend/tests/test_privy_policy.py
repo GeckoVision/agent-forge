@@ -13,7 +13,7 @@ from solders.instruction import Instruction
 from solders.keypair import Keypair
 from solders.system_program import TransferParams, transfer
 
-from agentforge.forge_client import (
+from gorilla.forge_client import (
     COMPUTE_BUDGET_ID,
     FORGE_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
@@ -23,8 +23,8 @@ from agentforge.forge_client import (
     stake_tx,
     to_lamports,
 )
-from agentforge.privy_http import PrivyError
-from agentforge.privy_policy import (
+from gorilla.privy_http import PrivyError
+from gorilla.privy_policy import (
     DEFAULT_MAX_LAMPORTS,
     PrivyControlPlane,
     build_forge_markets_policy,
@@ -47,7 +47,7 @@ def _stake_ixs(sol: float = 0.01) -> list[Instruction]:
 def _proof() -> dict:
     from pathlib import Path
 
-    from agentforge.forge_client import load_recorded_proof
+    from gorilla.forge_client import load_recorded_proof
 
     here = Path(__file__).resolve().parent
     return load_recorded_proof(here.parent / "scripts" / "fixtures" / "recorded_stat_proof.json")

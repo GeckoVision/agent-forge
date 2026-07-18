@@ -9,7 +9,7 @@ import { ByteReader, ByteWriter } from "./borsh";
 import { FORGE_PROGRAM_ID } from "./config";
 
 /**
- * Client mirror of `backend/agentforge/forge_client.py`. Turns an intent into
+ * Client mirror of `backend/gorilla/forge_client.py`. Turns an intent into
  * the EXACT `forge_markets` instruction the deployed devnet program expects —
  * right 8-byte Anchor discriminator, right account metas, right Borsh args, right
  * PDA derivations — and decodes the public on-chain `Market`/`Position` state.

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from solders.pubkey import Pubkey
 
-from agentforge.forge_client import (
+from gorilla.forge_client import (
     COMPUTE_BUDGET_ID,
     DEVNET_TXORACLE_ID,
     DISCRIMINATORS,
@@ -369,13 +369,13 @@ def test_txoracle_id_defaults_to_devnet():
 
 
 def test_txoracle_id_env_override_flips_target_and_root_pda():
-    """A mainnet settle build sets AGENTFORGE_TXORACLE_ID; the SAME builder then targets the
+    """A mainnet settle build sets GORILLA_TXORACLE_ID; the SAME builder then targets the
     mainnet oracle AND derives the mainnet daily-roots PDA (CdrF… — verified live on mainnet for
     epoch-day 20638). Exercised in a subprocess so the module-level id resolution runs from a
     clean import, without perturbing this process's devnet default."""
     backend = Path(__file__).resolve().parent.parent
     code = (
-        "from agentforge.forge_client import TXORACLE_PROGRAM_ID, MAINNET_TXORACLE_ID, "
+        "from gorilla.forge_client import TXORACLE_PROGRAM_ID, MAINNET_TXORACLE_ID, "
         "daily_scores_roots_pda\n"
         "assert str(TXORACLE_PROGRAM_ID) == MAINNET_TXORACLE_ID, TXORACLE_PROGRAM_ID\n"
         "pda, _bump, day = daily_scores_roots_pda(1783135501299)\n"
@@ -383,7 +383,7 @@ def test_txoracle_id_env_override_flips_target_and_root_pda():
     )
     env = {
         **os.environ,
-        "AGENTFORGE_TXORACLE_ID": "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA",
+        "GORILLA_TXORACLE_ID": "9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA",
         "PYTHONPATH": str(backend),
     }
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)

@@ -16,7 +16,7 @@ from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
-from agentforge.forge_client import (
+from gorilla.forge_client import (
     COMPUTE_BUDGET_ID,
     FORGE_PROGRAM_ID,
     SYSTEM_PROGRAM_ID,
@@ -26,14 +26,14 @@ from agentforge.forge_client import (
     to_lamports,
     with_priority_fee,
 )
-from agentforge.privy_http import (
+from gorilla.privy_http import (
     DEFAULT_PRIVY_WALLET_ADDRESS,
     DEFAULT_PRIVY_WALLET_ID,
     PRIVY_USER_AGENT,
     rpc_headers,
 )
-from agentforge.wallet import Policy, PolicyViolation, SignResult, TxIntent, WalletSeam
-from agentforge.wallets import (
+from gorilla.wallet import Policy, PolicyViolation, SignResult, TxIntent, WalletSeam
+from gorilla.wallets import (
     ChainPolicy,
     LocalDevnetWallet,
     OnChainError,
@@ -327,9 +327,9 @@ def test_rpc_headers_carry_a_real_user_agent_not_the_banned_urllib_default():
 
 # ── from_env wiring: the provisioned devnet wallet behind the seam ─────────────────
 def test_from_env_wires_the_provisioned_wallet(monkeypatch):
-    monkeypatch.setattr("agentforge.wallets.privy_creds", lambda: ("app-id", "app-secret"))
+    monkeypatch.setattr("gorilla.wallets.privy_creds", lambda: ("app-id", "app-secret"))
     monkeypatch.setattr(
-        "agentforge.wallets.privy_wallet_config",
+        "gorilla.wallets.privy_wallet_config",
         lambda: (DEFAULT_PRIVY_WALLET_ID, DEFAULT_PRIVY_WALLET_ADDRESS),
     )
     w = PrivyWallet.from_env(FakeRpc())  # type: ignore[arg-type]
@@ -340,7 +340,7 @@ def test_from_env_wires_the_provisioned_wallet(monkeypatch):
 
 
 def test_from_env_without_creds_raises_founder_steps(monkeypatch):
-    monkeypatch.setattr("agentforge.wallets.privy_creds", lambda: (None, None))
+    monkeypatch.setattr("gorilla.wallets.privy_creds", lambda: (None, None))
     with pytest.raises(PrivyNotConfigured, match="forge_markets"):
         PrivyWallet.from_env(FakeRpc())  # type: ignore[arg-type]
 

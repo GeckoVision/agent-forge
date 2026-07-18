@@ -44,7 +44,7 @@ yarn-error.log
 
 # Internal design/business docs + dev probes — not part of the public submission
 /ARCHITECTURE.md
-/AgentForge_Markets_Business_Model_and_PRD.md
+/Gorilla_Markets_Business_Model_and_PRD.md
 backend/scripts/probe_privy.py
 backend/scripts/probe_txoracle.py
 **/.venv/

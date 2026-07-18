@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SettlementView } from "@/components/settlement/settlement-view";
 
 export const metadata: Metadata = {
-  title: "Settlement · AgentForge Markets",
+  title: "Settlement · Gorilla Markets",
   description:
     "The centerpiece: a market settled by TxODDS's own on-chain Merkle proof. Open the proof viewer to watch a fixture stat fold up into the committed daily root.",
 };

@@ -17,10 +17,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from agentforge.forge_client import load_recorded_proof
-from agentforge.settlement import FORGE_BINDINGS, SettlementResult, run_settlement
-from agentforge.solana_rpc import SolanaRpc
-from agentforge.wallets import (
+from gorilla.forge_client import load_recorded_proof
+from gorilla.settlement import FORGE_BINDINGS, SettlementResult, run_settlement
+from gorilla.solana_rpc import SolanaRpc
+from gorilla.wallets import (
     ChainPolicy,
     LocalDevnetWallet,
     PrivyWallet,
@@ -58,7 +58,7 @@ def main() -> int:
     fixture_id = BASE_FIXTURE_ID + args.nonce
     rule = "=" * 78
     print(rule)
-    print("AgentForge — settlement loop under Privy enclave custody (devnet, real TxODDS proof)")
+    print("Gorilla — settlement loop under Privy enclave custody (devnet, real TxODDS proof)")
     print(rule)
 
     rpc = SolanaRpc()

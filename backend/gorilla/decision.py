@@ -8,7 +8,7 @@ deterministic and not overfit to one fixture; conviction-weighting is a later tu
 not MVP scope.
 
 The custody bound is SEPARATE and enforced downstream by the wallet
-(:mod:`agentforge.wallet`): even a bet that sizes within the risk policy is refused if it
+(:mod:`gorilla.wallet`): even a bet that sizes within the risk policy is refused if it
 exceeds the wallet's spend cap or falls off its purpose allow-list. Two independent bounds,
 defense in depth.
 """

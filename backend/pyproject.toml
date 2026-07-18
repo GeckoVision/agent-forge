@@ -1,7 +1,7 @@
 [project]
-name = "agentforge-backend"
+name = "gorilla-backend"
 version = "0.0.1"
-description = "AgentForge Markets backend — agent runtime + on-chain client (devnet-only)"
+description = "Gorilla Markets backend — agent runtime + on-chain client (devnet-only)"
 requires-python = ">=3.11"
 # The agent core is self-contained stdlib (the TxLINE feed reads its own spec and calls the
 # API directly via urllib); solders is the only runtime dep, for the on-chain client.
@@ -25,4 +25,4 @@ pythonpath = ["."]
 
 [tool.mypy]
 python_version = "3.11"
-packages = ["agentforge"]
+packages = ["gorilla"]

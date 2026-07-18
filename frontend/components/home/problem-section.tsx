@@ -40,7 +40,7 @@ export function ProblemSection() {
         <p className="body-l mt-6 max-w-2xl text-muted-foreground text-pretty">
           “Under review.” “Check back later.” Or a result that somehow went the
           other way. You did everything right and walked away with nothing.
-          AgentForge ends that — no person decides who won, no company holds your
+          Gorilla ends that — no person decides who won, no company holds your
           cash. The match data decides, and the payout is automatic.
         </p>
 
@@ -61,7 +61,7 @@ export function ProblemSection() {
           </div>
 
           <div className="rounded-xl border border-primary/30 bg-primary/[0.07] p-6 backdrop-blur-sm">
-            <span className="eyebrow text-primary">AgentForge</span>
+            <span className="eyebrow text-primary">Gorilla</span>
             <ul className="mt-4 flex flex-col gap-3">
               {PROMISES.map((p) => (
                 <li key={p} className="flex items-center gap-3 text-sm">

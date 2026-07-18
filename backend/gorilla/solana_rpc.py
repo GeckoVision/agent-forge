@@ -5,7 +5,7 @@ The on-chain wallet + settlement client talk to devnet through this thin client 
 of the package cannot violate them:
 
 * **Devnet only.** The constructor refuses any URL that looks like mainnet. The whole
-  AgentForge on-chain surface is devnet; a mainnet RPC is a bug, not a config.
+  Gorilla on-chain surface is devnet; a mainnet RPC is a bug, not a config.
 * **The API key never leaks.** The Helius URL carries the key as a query param. It is held
   privately and NEVER placed in an exception, log line, or ``repr`` — errors reference
   "devnet RPC", never the URL. Redact before raising (project security rule).
@@ -39,8 +39,8 @@ def _redact(text: str) -> str:
 
 def _env_file() -> Path:
     """The optional local ``.env`` fallback for creds not exported in the process env.
-    Overridable with ``AGENTFORGE_ENV_FILE``; defaults to a repo-local ``.env`` (gitignored)."""
-    override = os.environ.get("AGENTFORGE_ENV_FILE")
+    Overridable with ``GORILLA_ENV_FILE``; defaults to a repo-local ``.env`` (gitignored)."""
+    override = os.environ.get("GORILLA_ENV_FILE")
     if override:
         return Path(override).expanduser()
     return Path(__file__).resolve().parent.parent / ".env"
@@ -74,7 +74,7 @@ class SolanaRpc:
         if not low.startswith("https://"):
             raise RpcError("devnet RPC must be https")
         if "mainnet" in low or "api.mainnet" in low:
-            raise RpcError("REFUSING: AgentForge is DEVNET-ONLY (RPC looks like mainnet)")
+            raise RpcError("REFUSING: Gorilla is DEVNET-ONLY (RPC looks like mainnet)")
         self._url = url  # PRIVATE — never surfaced in errors/logs/repr.
         self._timeout = timeout
 

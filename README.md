@@ -1,4 +1,4 @@
-# AgentForge Markets
+# Gorilla Markets
 
 **Trustless agent-settled prediction markets on Solana.** Autonomous agents bet on live sports, and every outcome settles by the data provider's own **on-chain Merkle proof** — the program never calls the result. Each agent signs only inside a **policy it physically cannot exceed**.
 
@@ -8,9 +8,9 @@ Built for the Superteam × TxODDS *Prediction Markets & Settlement* track. Verif
 
 ## The two problems it solves
 
-1. **Trustless settlement — no resolver.** Most prediction markets trust a human admin or an optimistic oracle to call the outcome. AgentForge doesn't. `settle` makes a CPI into TxODDS's on-chain oracle, which verifies a 3-stage Merkle proof against *its own* on-chain root and evaluates the market's predicate. **The program never decides — the proof does.** A tampered proof makes the CPI fail, which reverts the settle. That revert *is* the trust guarantee.
+1. **Trustless settlement — no resolver.** Most prediction markets trust a human admin or an optimistic oracle to call the outcome. Gorilla doesn't. `settle` makes a CPI into TxODDS's on-chain oracle, which verifies a 3-stage Merkle proof against *its own* on-chain root and evaluates the market's predicate. **The program never decides — the proof does.** A tampered proof makes the CPI fail, which reverts the settle. That revert *is* the trust guarantee.
 
-2. **Safe agent delegation — the agent can't drain you.** Betting agents need to sign transactions, but handing an agent your keys is a non-starter. AgentForge signs behind a `WalletSeam`: either a local keypair or a **Privy TEE server-wallet** whose enclave enforces an on-chain signing policy (a max-SOL cap + a program allow-list). An out-of-policy transaction is **refused before a signature is ever produced**.
+2. **Safe agent delegation — the agent can't drain you.** Betting agents need to sign transactions, but handing an agent your keys is a non-starter. Gorilla signs behind a `WalletSeam`: either a local keypair or a **Privy TEE server-wallet** whose enclave enforces an on-chain signing policy (a max-SOL cap + a program allow-list). An out-of-policy transaction is **refused before a signature is ever produced**.
 
 ## Live on devnet (verified)
 
@@ -26,7 +26,7 @@ The full loop runs end-to-end on devnet — **create market → stake YES / NO �
 flowchart TB
     ODDS[["TxLINE odds feed<br/>verifiable real-time World Cup data"]]
 
-    subgraph AGT["Autonomous agent · backend/agentforge — one code path: recorded ($0, offline) & live"]
+    subgraph AGT["Autonomous agent · backend/gorilla — one code path: recorded ($0, offline) & live"]
       direction LR
       FEED["txline_feed<br/>odds → typed OddsSnapshot"]
       DET["detector<br/>flag a sharp move<br/>(implied-prob shift)"]
@@ -65,7 +65,7 @@ reverts. The program never calls the outcome.
 | Layer | What it does |
 |---|---|
 | **On-chain** — `program/` (Anchor 1.0) | `forge_markets`: `create_market` / `stake` / `settle` / `claim`. `settle` CPIs the verifiable-data oracle; a bad proof reverts. Fails **closed**. |
-| **Agent** — `backend/agentforge/` | Reads live odds → detects a sharp move → decides a bet within a risk policy → signs within custody policy → settles by proof → claims. One code path, recorded ($0, offline) and live. |
+| **Agent** — `backend/gorilla/` | Reads live odds → detects a sharp move → decides a bet within a risk policy → signs within custody policy → settles by proof → claims. One code path, recorded ($0, offline) and live. |
 | **Custody** — `WalletSeam` | Pluggable signer: `LocalDevnetWallet` (a keypair) or `PrivyWallet` (TEE server-wallet with an on-chain signing policy). Belt (client-side risk cap) + braces (enclave-enforced cap). |
 
 ## Run it (offline, $0)
@@ -73,9 +73,19 @@ reverts. The program never calls the outcome.
 ```bash
 cd backend
 uv sync
-uv run python -m agentforge          # the agent loop, recorded/offline
+uv run python -m gorilla          # the agent loop, recorded/offline
+uv run python -m gorilla watch    # stream live sharp-money signals ($0, offline)
+uv run python -m gorilla watch --act   # + the policy-gated bet, within a custody cap
 uv run pytest                        # the suite (offline, no network)
 ```
+
+`watch` is the **signal-first** view of the same agent core: it streams the odds feed
+tick by tick and flags each **sharp move** — a professional-money shift in a line's
+implied probability (book · market · outcome · old%→new% · Δpp · direction) — as a live
+signal. Sharp money moves a line early; catching it before the market is the edge. The
+signal is the hero; `--act` layers on the hands-off bet the agent *would* sign within its
+custody cap (the wallet refuses anything past the cap). Recorded / `$0` / offline by
+default; `--live` polls the real TxLINE feed.
 
 Live devnet demos: `uv run python scripts/e2e_settlement.py` (local signer) and `scripts/e2e_settlement_privy.py` (enclave custody) — see `backend/README` for the RPC + funding setup.
 

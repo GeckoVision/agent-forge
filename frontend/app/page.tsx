@@ -3,6 +3,7 @@ import { ArrowRight, Lock, ScrollText, Trophy } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { PosterHero } from "@/components/hero/poster-hero";
+import { ProofSection } from "@/components/home/proof-section";
 import { ProblemSection } from "@/components/home/problem-section";
 import { HowItWorks } from "@/components/home/how-it-works";
 
@@ -42,8 +43,11 @@ const toneRing = {
 export default function HomePage() {
   return (
     <>
-      {/* ── Hero (sports-poster) ──────────────────────────────────────────── */}
+      {/* ── Hero (Monolog-style single composition) ──────────────────────── */}
       <PosterHero />
+
+      {/* ── See it live (relocated card + CTAs + live devnet proof) ───────── */}
+      <ProofSection />
 
       {/* ── The problem (dark atmospheric band) ──────────────────────────── */}
       <ProblemSection />

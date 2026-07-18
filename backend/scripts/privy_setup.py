@@ -1,6 +1,6 @@
 """Founder-run Privy custody setup — attach the Solana signing policy + devnet test-sign.
 
-DEVNET-ONLY. Thin CLI over :mod:`agentforge.privy_policy` + :mod:`agentforge.wallets`; all the
+DEVNET-ONLY. Thin CLI over :mod:`gorilla.privy_policy` + :mod:`gorilla.wallets`; all the
 logic lives in the package. The target wallet is app-owned (``owner_id: null``), so every step
 runs headless with Basic app auth — no authorization signatures. The app secret is read from
 env / local ``.env`` and NEVER printed.
@@ -20,18 +20,18 @@ from __future__ import annotations
 import argparse
 import json
 
-from agentforge.forge_client import to_lamports
-from agentforge.privy_http import PrivyError, privy_creds, privy_wallet_config
-from agentforge.privy_policy import (
+from gorilla.forge_client import to_lamports
+from gorilla.privy_http import PrivyError, privy_creds, privy_wallet_config
+from gorilla.privy_policy import (
     DEFAULT_MAX_LAMPORTS,
     PrivyControlPlane,
     build_forge_markets_policy,
 )
-from agentforge.solana_rpc import SolanaRpc
-from agentforge.wallets import OnChainError, PrivyWallet
+from gorilla.solana_rpc import SolanaRpc
+from gorilla.wallets import OnChainError, PrivyWallet
 
 # Stable idempotency key: a re-run within 24h returns the same policy, never a duplicate.
-IDEMPOTENCY_KEY = "agentforge-forge-markets-devnet-policy-v2"
+IDEMPOTENCY_KEY = "gorilla-forge-markets-devnet-policy-v2"
 
 
 def _explorer(sig: str) -> str:
@@ -51,7 +51,7 @@ def main() -> int:
 
     rule = "=" * 78
     print(rule)
-    print("AgentForge — Privy Solana custody setup (DEVNET-ONLY)")
+    print("Gorilla — Privy Solana custody setup (DEVNET-ONLY)")
     print(rule)
 
     app_id, app_secret = privy_creds()

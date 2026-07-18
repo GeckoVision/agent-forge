@@ -92,7 +92,7 @@ export function PlaceBetPanel({
   const [sig, setSig] = useState<string | null>(null);
 
   // Build the exact `stake` instruction client-side — the same wire format the
-  // deployed program expects (mirrors backend/agentforge/forge_client.py).
+  // deployed program expects (mirrors backend/gorilla/forge_client.py).
   const built = useMemo(() => {
     if (!publicKey || amount <= 0) return null;
     try {
