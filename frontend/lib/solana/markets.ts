@@ -66,22 +66,46 @@ export async function fetchMarkets(
   }
 
   return [...byAddress.values()].sort((a, b) => {
-    // settled first, then by pot desc — the demo-worthy records lead.
+    // Settled first, then pot desc: a settled market is the only one that can carry a
+    // proof, so leading with it means any consumer taking the head of this list has the
+    // settlement story available. Callers that also need a stakeable market must span
+    // both states deliberately — see `selectFeatured`, which does exactly that.
     if (a.state !== b.state) return a.state === "Settled" ? -1 : 1;
     return Number(b.potLamports - a.potLamports);
   });
 }
 
 /**
- * The markets to feature, chosen from what is actually on chain: settled markets first (they
- * have a proof to show), then by pot — the ordering `fetchMarkets` already applied. Returns
- * fewer than `count`, or none, when the chain holds fewer; it never pads the list.
+ * The markets to feature, chosen from what is actually on chain.
+ *
+ * Spans both market states on purpose: the page tells two stories that need two different
+ * markets — a Settled one has the Merkle proof to show, and only an Open one can accept a
+ * stake. Taking the head of `fetchMarkets` blindly would feature two settled markets and
+ * leave every bet fail-closed with `MarketNotOpen`. Within each state the biggest pot wins,
+ * as the most substantive record of that story. When the chain holds only one state (or
+ * fewer markets than asked for) it returns what exists — it never pads the list, and never
+ * invents a market the program does not own.
  */
 export function selectFeatured(
   markets: MarketAccount[] | null,
   count = 2,
 ): MarketAccount[] {
-  return (markets ?? []).slice(0, count);
+  const byPot = [...(markets ?? [])].sort((a, b) =>
+    Number(b.potLamports - a.potLamports),
+  );
+  // Settled queue first so featured[0] still leads with the proof story.
+  const queues = [
+    byPot.filter((m) => m.state === "Settled"),
+    byPot.filter((m) => m.state !== "Settled"),
+  ];
+
+  const featured: MarketAccount[] = [];
+  for (let i = 0; featured.length < count; i++) {
+    if (queues.every((q) => q.length === 0)) break;
+    const next = queues[i % queues.length].shift();
+    if (next) featured.push(next);
+  }
+  return featured;
 }
 
 /**

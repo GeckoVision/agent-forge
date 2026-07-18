@@ -22,11 +22,13 @@ import { cn } from "@/lib/utils";
 export function SettlementView() {
   const config = getNetworkConfig(DATA_MODE);
   const { markets, loading } = useMarkets();
-  // The featured markets are whatever the program actually owns on chain (settled first),
-  // not a hardcoded list — so the page can only ever show markets that exist.
+  // The featured markets are whatever the program actually owns on chain (a settled one for
+  // the proof, an open one to stake against), not a hardcoded list — so the page can only
+  // ever show markets that exist.
   const featured = useMemo(() => selectFeatured(markets, 2), [markets]);
   const [picked, setPicked] = useState<string | null>(null);
   const selected = picked ?? featured[0]?.address ?? null;
+  const openFeatured = featured.find((m) => m.state !== "Settled") ?? null;
 
   // Keyed by address so a stale result for a previously-selected market is
   // detectable during render (no synchronous reset inside the effect).
@@ -36,6 +38,11 @@ export function SettlementView() {
   }>({ address: null, txs: null });
 
   const market = featured.find((m) => m.address === selected) ?? null;
+
+  // The bet panel needs a market that can actually accept a stake. Until the visitor picks
+  // a market themselves we point it at the open one; once they pick, we honour the pick —
+  // a settled market's fail-closed refusal is a real thing to show, not a bug to route around.
+  const betMarket = picked ? market : (openFeatured ?? market);
 
   useEffect(() => {
     if (!selected) return;
@@ -125,10 +132,29 @@ export function SettlementView() {
             </CardContent>
           </Card>
 
-          {market && (
+          {betMarket && (
             <Card>
               <CardContent>
-                <PlaceBetPanel market={market} cluster={config.explorerCluster} />
+                {betMarket.address !== market?.address && (
+                  <p className="mb-4 rounded-lg bg-secondary/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
+                    The market shown left is already settled, so this bet targets the open
+                    market on chain —{" "}
+                    <span className="text-foreground">{`Fixture ${betMarket.fixtureId}`}</span>
+                    , {predicateLabel(betMarket)}.
+                  </p>
+                )}
+                {!openFeatured && (
+                  <p className="mb-4 rounded-lg bg-secondary/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
+                    No open market is live on{" "}
+                    <span className="text-foreground">{config.explorerCluster}</span> right
+                    now — every market the program owns is already settled, so any stake
+                    below will be refused by the program.
+                  </p>
+                )}
+                <PlaceBetPanel
+                  market={betMarket}
+                  cluster={config.explorerCluster}
+                />
               </CardContent>
             </Card>
           )}

@@ -12,7 +12,7 @@ import {
   findSettleTx,
   selectFeatured,
 } from "@/lib/solana/markets";
-import type { MarketAccount } from "@/lib/solana/forge-client";
+import type { MarketAccount, MarketStateName } from "@/lib/solana/forge-client";
 import { DISCRIMINATORS } from "@/lib/solana/forge-client";
 import { FORGE_PROGRAM_ID, getNetworkConfig } from "@/lib/solana/config";
 import {
@@ -169,8 +169,13 @@ describe("fetchMarketTransactions", () => {
 });
 
 describe("selectFeatured / findAllByFixture", () => {
-  const market = (address: string, fixtureId: bigint, statKey = 1) =>
-    ({ address, fixtureId, statKey }) as MarketAccount;
+  const market = (
+    address: string,
+    fixtureId: bigint,
+    statKey = 1,
+    state: MarketStateName = "Open",
+    potLamports = 0n,
+  ) => ({ address, fixtureId, statKey, state, potLamports }) as MarketAccount;
 
   it("features what is actually on chain, and never pads the list", () => {
     const markets = [market("a", 1n), market("b", 2n)];
@@ -181,6 +186,65 @@ describe("selectFeatured / findAllByFixture", () => {
 
   it("features nothing when the chain read failed", () => {
     expect(selectFeatured(null, 2)).toEqual([]);
+  });
+
+  it("features one settled AND one open market, so both stories are tellable", () => {
+    // fetchMarkets hands over settled-first; a blind slice(0, 2) would feature two
+    // settled markets and leave the bet panel pointed at a market that cannot accept a stake.
+    const markets = [
+      market("settled-big", 1n, 1, "Settled", 900n),
+      market("settled-small", 2n, 1, "Settled", 100n),
+      market("open-big", 3n, 1, "Open", 500n),
+      market("open-small", 4n, 1, "Open", 50n),
+    ];
+    const featured = selectFeatured(markets, 2);
+    expect(featured.map((m) => m.address)).toEqual(["settled-big", "open-big"]);
+    expect(featured.map((m) => m.state)).toEqual(["Settled", "Open"]);
+  });
+
+  it("picks the highest-pot market of each state regardless of input order", () => {
+    const markets = [
+      market("open-small", 1n, 1, "Open", 10n),
+      market("settled-small", 2n, 1, "Settled", 20n),
+      market("open-big", 3n, 1, "Open", 999n),
+      market("settled-big", 4n, 1, "Settled", 888n),
+    ];
+    expect(selectFeatured(markets, 2).map((m) => m.address)).toEqual([
+      "settled-big",
+      "open-big",
+    ]);
+  });
+
+  it("degrades gracefully when every market is settled", () => {
+    const markets = [
+      market("s1", 1n, 1, "Settled", 300n),
+      market("s2", 2n, 1, "Settled", 200n),
+    ];
+    // no open market exists on chain -> feature the settled ones rather than invent one
+    expect(selectFeatured(markets, 2).map((m) => m.address)).toEqual(["s1", "s2"]);
+    expect(selectFeatured(markets, 2).every((m) => m.state === "Settled")).toBe(true);
+  });
+
+  it("degrades gracefully when every market is open", () => {
+    const markets = [
+      market("o1", 1n, 1, "Open", 300n),
+      market("o2", 2n, 1, "Open", 200n),
+    ];
+    expect(selectFeatured(markets, 2).map((m) => m.address)).toEqual(["o1", "o2"]);
+  });
+
+  it("never pads when only one state is present or the chain holds fewer than count", () => {
+    expect(selectFeatured([market("s", 1n, 1, "Settled", 5n)], 2)).toHaveLength(1);
+    expect(selectFeatured([market("o", 1n, 1, "Open", 5n)], 2)).toHaveLength(1);
+    expect(selectFeatured([], 2)).toEqual([]);
+    // a bigger count than the chain holds still returns exactly what exists, deduplicated
+    const mixed = [
+      market("s", 1n, 1, "Settled", 5n),
+      market("o", 2n, 1, "Open", 5n),
+    ];
+    const many = selectFeatured(mixed, 5);
+    expect(many).toHaveLength(2);
+    expect(new Set(many.map((m) => m.address)).size).toBe(2);
   });
 
   it("returns EVERY market for a fixture, so no real stake is silently dropped", () => {
