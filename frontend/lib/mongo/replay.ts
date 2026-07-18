@@ -2,8 +2,14 @@ import { MANIFEST, type ReplayManifest } from "@/lib/agent/manifest";
 import type { ReplaySlice } from "@/lib/agent/replay";
 
 import { fixtureMeta } from "./fixtures";
-import { lineSeries } from "./odds";
-import { DEFAULT_DATASET, type Dataset, type Reading } from "./types";
+import { type LineSelector, lineSeries } from "./odds";
+import {
+  CAPTURE_BOOKMAKER_ID,
+  type Dataset,
+  FULL_MATCH,
+  marketPeriodOf,
+  type Reading,
+} from "./types";
 
 /**
  * Compose the `/agent` replay slice: the REAL captured odds, read from MongoDB at request
@@ -47,10 +53,11 @@ const READINGS_AFTER_MOVE = 6;
  * The contiguous window to chart, anchored on the MOVE rather than on stored indices.
  *
  * The manifest's `windowStart`/`windowEnd` were computed against the export's own copy of the
- * series and are meaningless against Mongo's, which holds more readings for the same line
- * (335 vs the export's 178 — the database was loaded from a fuller capture). Trusting those
- * indices charted 40 real readings that ENDED BEFORE the flagged move, so the chart silently
- * never highlighted the move it described in the caption beside it.
+ * series and are meaningless against Mongo's, because the two need not agree on how many
+ * readings the line holds — a reload can lengthen or shorten it. (They happen to agree at 178
+ * after the corrected reload; an earlier load returned 335 for the same line, and trusting the
+ * stored indices then charted 40 real readings that ENDED BEFORE the flagged move, so the
+ * chart silently never highlighted the move it described in the caption beside it.)
  *
  * Choosing which 40 readings to show is presentation, not detection: the move itself still
  * comes from the real Python detector. So the window is re-derived here by the same rule the
@@ -100,20 +107,46 @@ export interface ReplayReaders {
 const MONGO_READERS: ReplayReaders = { readFixture: fixtureMeta, readLine: lineSeries };
 
 export interface ReplayQuery {
-  dataset?: Dataset;
+  /**
+   * REQUIRED — no default. 106 fixture ids exist in both captures, so a dataset-less compose
+   * would read one capture's fixture metadata against the other's odds without complaining.
+   */
+  dataset: Dataset;
   manifest?: ReplayManifest;
   readers?: ReplayReaders;
 }
 
-export async function buildReplaySlice(query: ReplayQuery = {}): Promise<ReplaySlice> {
+export async function buildReplaySlice(query: ReplayQuery): Promise<ReplaySlice> {
   const manifest = query.manifest ?? MANIFEST;
-  const dataset = query.dataset ?? DEFAULT_DATASET;
+  const { dataset } = query;
   const { readFixture, readLine } = query.readers ?? MONGO_READERS;
   const { fixtureId } = manifest;
 
+  /**
+   * The FULL-MATCH line, stated explicitly.
+   *
+   * TxLINE interleaves the full-match and first-half lines of a market family, and the
+   * detector fired on the full-match one. Without the period predicate the read would return
+   * both, blended into a single sawtooth series that no book ever showed — and it would read
+   * as more data, not as a bug. Asserted against the market key so the two cannot drift.
+   */
+  const selector: LineSelector = {
+    fixtureId,
+    market: manifest.line.market,
+    dataset,
+    period: FULL_MATCH,
+    bookmakerId: CAPTURE_BOOKMAKER_ID,
+  };
+  if (marketPeriodOf(selector.market) !== FULL_MATCH) {
+    throw new ReplayUnavailableError(
+      `The detector's artifact names "${selector.market}", which is not a full-match line. ` +
+        "The chart claims to draw the full-match line, so nothing is shown.",
+    );
+  }
+
   const [fixture, series] = await Promise.all([
     readFixture(fixtureId, dataset),
-    readLine(fixtureId, manifest.line.market, manifest.line.outcome, dataset),
+    readLine(selector, manifest.line.outcome),
   ]);
 
   if (!fixture) {
@@ -123,8 +156,8 @@ export async function buildReplaySlice(query: ReplayQuery = {}): Promise<ReplayS
   }
   if (series.length === 0) {
     throw new ReplayUnavailableError(
-      `The capture in MongoDB holds no readings of ${manifest.line.market} · ` +
-        `${manifest.line.outcome} for fixture ${fixtureId}.`,
+      `The capture in MongoDB holds no full-match readings of ${manifest.line.market} · ` +
+        `${manifest.line.outcome} for fixture ${fixtureId} in dataset "${dataset}".`,
     );
   }
   if (!verifyMove(series, manifest)) {
@@ -167,6 +200,7 @@ export async function buildReplaySlice(query: ReplayQuery = {}): Promise<ReplayS
     line: {
       bookmaker: manifest.line.bookmaker,
       market: manifest.line.market,
+      period: selector.period,
       outcome: manifest.line.outcome,
       readingsOnLine: series.length,
       windowStart: start,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { buildReplaySlice } from "@/lib/mongo/replay";
 import { errorResponse } from "@/lib/mongo/respond";
-import { parseDataset } from "@/lib/mongo/types";
+import { DEMO_DATASET, parseDataset } from "@/lib/mongo/types";
 
 /**
  * The `/agent` page's odds input, composed server-side.
@@ -23,7 +23,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const slice = await buildReplaySlice({
-      dataset: parseDataset(req.nextUrl.searchParams.get("dataset")),
+      // The dataset is pinned EXPLICITLY here, at the HTTP edge — `lib/mongo/` has no default,
+      // because a fixture id alone matches in both captures and the wrong one would just chart.
+      dataset: parseDataset(req.nextUrl.searchParams.get("dataset"), DEMO_DATASET),
     });
     return NextResponse.json(slice);
   } catch (err) {

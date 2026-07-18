@@ -1,15 +1,21 @@
 import type { Document, Filter } from "mongodb";
 
 import { getDb } from "./client";
-import { DEFAULT_DATASET, type Dataset, type FixtureMeta } from "./types";
+import type { Dataset, FixtureMeta } from "./types";
 
 /**
  * Reads over the `fixtures` collection.
  *
  * Fixtures are keyed by the COMPOUND `(dataset, fixtureId)` — `_id` is the string
- * `"<dataset>:<fixtureId>"` and `dataset_fixtureId_unique` enforces it. A fixture id alone is
- * therefore not a key: the same match can appear in more than one capture. Every function
- * here takes a dataset and defaults to `DEFAULT_DATASET`.
+ * `"<dataset>:<fixtureId>"` (e.g. `"worldcup_prematch:18257865"`), and
+ * `dataset_fixtureId_unique` enforces it. Two consequences, both load-bearing:
+ *
+ * * A lookup by the bare integer `_id` finds NOTHING. Every read here queries
+ *   `{dataset, fixtureId}` against that unique compound index instead — never `_id`.
+ * * A fixture id alone is not a key: 106 ids appear in BOTH captures with different metadata,
+ *   so a dataset-less query returns the same match twice with conflicting counts. `dataset` is
+ *   therefore a REQUIRED argument on every function below, with no default — the compiler
+ *   refuses the ambiguous read rather than quietly picking a capture.
  */
 
 const COLLECTION = "fixtures";
@@ -17,12 +23,13 @@ const COLLECTION = "fixtures";
 /**
  * SETTLED = `labeled: true`.
  *
- * NOT `result.available`. 103 of 108 fixtures set `result.available = true` — it only records
- * that a score document came back — but just 57 carry a real scored outcome. The rest hold
- * partial scores (`participant1Goals: 1, participant2Goals: null, outcome: null`) for matches
- * that had not finished. `labeled` is the loader's assertion that the result is complete, and
- * it agrees exactly with `result.outcome` being present (57 = 57), so both are required below:
- * either one alone would be a single point of failure for a silent 46-fixture over-count.
+ * NOT `result.available`. In `worldcup_prematch` 102 of 106 fixtures set
+ * `result.available = true` — it only records that a score document came back — but just 56
+ * carry a real scored outcome. The rest hold partial scores (`participant1Goals: 1,
+ * participant2Goals: null, outcome: null`) for matches that had not finished. `labeled` is the
+ * loader's assertion that the result is complete, and it agrees exactly with `result.outcome`
+ * being present (56 = 56), so both are required below: either one alone would be a single point
+ * of failure for a silent 46-fixture over-count.
  */
 const SETTLED: Filter<Document> = {
   labeled: true,
@@ -93,7 +100,7 @@ function toMeta(doc: FixtureDoc): FixtureMeta {
 /** One fixture, or `null` when the capture holds no such fixture in that dataset. */
 export async function fixtureMeta(
   fixtureId: number,
-  dataset: Dataset = DEFAULT_DATASET,
+  dataset: Dataset,
 ): Promise<FixtureMeta | null> {
   const db = await getDb();
   const doc = await db
@@ -103,7 +110,7 @@ export async function fixtureMeta(
 }
 
 export interface FixtureListQuery {
-  dataset?: Dataset;
+  dataset: Dataset;
   /** `true` → only settled fixtures (see {@link SETTLED}); `false` → only unsettled. */
   settled?: boolean;
   competitionId?: number;
@@ -111,8 +118,8 @@ export interface FixtureListQuery {
 }
 
 /** Fixtures in a dataset, newest kickoff first. */
-export async function listFixtures(query: FixtureListQuery = {}): Promise<FixtureMeta[]> {
-  const dataset = query.dataset ?? DEFAULT_DATASET;
+export async function listFixtures(query: FixtureListQuery): Promise<FixtureMeta[]> {
+  const { dataset } = query;
   const limit = Math.min(Math.max(Math.trunc(query.limit ?? 120), 1), 500);
   const db = await getDb();
 
@@ -132,7 +139,7 @@ export async function listFixtures(query: FixtureListQuery = {}): Promise<Fixtur
 
 /** How many fixtures are settled vs merely present — the honest denominator for any rate. */
 export async function fixtureCounts(
-  dataset: Dataset = DEFAULT_DATASET,
+  dataset: Dataset,
 ): Promise<{ total: number; settled: number }> {
   const db = await getDb();
   const collection = db.collection<Document>(COLLECTION);

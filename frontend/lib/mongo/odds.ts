@@ -2,21 +2,24 @@ import type { Document } from "mongodb";
 
 import { getDb } from "./client";
 import {
-  DEFAULT_DATASET,
   type Dataset,
+  type MarketPeriod,
+  marketPeriodOf,
   type Reading,
   type SeriesPageResponse,
   type SeriesResponse,
 } from "./types";
 
 /**
- * Reads over `odds_updates` — a 3.66M-document time-series collection.
+ * Reads over `odds_updates` — a 12.3M-document time-series collection spanning two captures
+ * (`worldcup_prematch`, 3.66M updates; `all_competitions`, 8.63M).
  *
  * The load-bearing rule here is REDUCE IN THE DATABASE, NOT AFTER SHIPPING. A whole fixture's
  * series is 16,781 documents (~4.6s); shipping that to a browser to draw a 100-bar chart is
  * the wrong shape at every layer. So every read below:
  *
- *   1. filters to ONE market (an index-supported predicate, not a post-filter),
+ *   1. filters to ONE line — see {@link LineSelector}, which is one market of one bookmaker,
+ *      in one dataset, over one period (an index-supported predicate, not a post-filter),
  *   2. projects away everything the chart does not draw — `prices[]`, `inRunning`, `meta`,
  *      the other outcomes' percentages — leaving `{ts, pct}` and nothing else,
  *   3. downsamples with `$bucketAuto` so the response is ~100 points regardless of how many
@@ -24,9 +27,10 @@ import {
  *
  * `odds_updates` is queried directly rather than the `odds_updates_flat` view because a view
  * is a prepended pipeline stage: predicates against it are matched AFTER the view's `$set`
- * stages, which can cost the index. Querying `meta.*` keeps the `(meta.fixtureId, ts)` index
- * in play. `tsMs` (the epoch-millis form the rest of the codebase uses) is derived in the
- * final `$project` instead — the same value, computed for ~100 documents rather than 16,781.
+ * stages, which can cost the index. Querying `meta.*` keeps the
+ * `(meta.fixtureId, meta.bookmakerId, meta.market, ts)` index in play. `tsMs` (the epoch-millis
+ * form the rest of the codebase uses) is derived in the final `$project` instead — the same
+ * value, computed for ~100 documents rather than 16,781.
  */
 
 const COLLECTION = "odds_updates";
@@ -39,12 +43,31 @@ const MAX_POINTS = 500;
 export const DEFAULT_PAGE_LIMIT = 500;
 const MAX_PAGE_LIMIT = 2000;
 
-export interface SeriesQuery {
+/**
+ * Everything it takes to name ONE price line unambiguously.
+ *
+ * Every field is REQUIRED, and that is the point. Each one, left off, silently merges two
+ * different things into a single series rather than failing:
+ *
+ * * `dataset` — 106 fixture ids live in both captures; omitting it returns each reading twice.
+ * * `period` — the full-match and first-half lines share a market family and move
+ *   independently; omitting it blends them (1,740 readings become 2,829 for the 1X2 line).
+ * * `bookmakerId` — a no-op on this single-book capture, but it stops a second book in a
+ *   later capture from merging into one series.
+ *
+ * There are no defaults here. The compiler refuses an under-specified line.
+ */
+export interface LineSelector {
   fixtureId: number;
   market: string;
+  dataset: Dataset;
+  period: MarketPeriod;
+  bookmakerId: number;
+}
+
+export interface SeriesQuery extends LineSelector {
   /** Key within the `pct` sub-document: `over`/`under`, or `part1`/`draw`/`part2`. */
   outcome: string;
-  dataset?: Dataset;
   points?: number;
 }
 
@@ -54,6 +77,18 @@ export interface SeriesPageQuery extends Omit<SeriesQuery, "points"> {
   limit?: number;
 }
 
+/** A caller asked for a market key whose own period contradicts the period it passed. */
+export class MarketPeriodMismatchError extends Error {
+  constructor(market: string, period: MarketPeriod) {
+    super(
+      `Market "${market}" is the ${marketPeriodOf(market) === "" ? "full-match" : "first-half"} ` +
+        `line, but period "${period}" was requested. That combination matches no readings; ` +
+        `refusing rather than returning an empty series that reads as "no data".`,
+    );
+    this.name = "MarketPeriodMismatchError";
+  }
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(Math.trunc(value), min), max);
 }
@@ -61,13 +96,22 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * The `$match` every read starts from.
  *
- * Field order mirrors the `(meta.fixtureId, ts)` index so the fixture predicate bounds the
- * scan; `meta.market` and `meta.dataset` then narrow within it.
+ * Field order mirrors `fixture_book_market_ts` — `(meta.fixtureId, meta.bookmakerId,
+ * meta.market, ts)` — so the compound index bounds the scan; `meta.marketPeriod` and
+ * `meta.dataset` then narrow within it.
+ *
+ * The market key and the period predicate are cross-checked first: `..._RESULT|half=1` with
+ * `period: ""` would quietly return nothing, and "no readings" is indistinguishable in the UI
+ * from "the capture holds no such line".
  */
-function matchLine(fixtureId: number, market: string, dataset: Dataset): Document {
+function matchLine(selector: LineSelector): Document {
+  const { fixtureId, market, dataset, period, bookmakerId } = selector;
+  if (marketPeriodOf(market) !== period) throw new MarketPeriodMismatchError(market, period);
   return {
     "meta.fixtureId": fixtureId,
+    "meta.bookmakerId": bookmakerId,
     "meta.market": market,
+    "meta.marketPeriod": period,
     "meta.dataset": dataset,
   };
 }
@@ -103,13 +147,14 @@ function projectOutcome(outcome: string): Document[] {
  * book never showed.
  */
 export async function downsampledSeries(query: SeriesQuery): Promise<SeriesResponse> {
-  const { fixtureId, market, outcome } = query;
-  const dataset = query.dataset ?? DEFAULT_DATASET;
+  const { fixtureId, market, outcome, dataset, period } = query;
   const points = clamp(query.points ?? DEFAULT_POINTS, 2, MAX_POINTS);
+  // Validate the line BEFORE opening a connection, so a contradictory query fails offline.
+  const match = matchLine(query);
   const db = await getDb();
 
   const pipeline: Document[] = [
-    { $match: matchLine(fixtureId, market, dataset) },
+    { $match: match },
     ...projectOutcome(outcome),
     {
       $bucketAuto: {
@@ -137,6 +182,7 @@ export async function downsampledSeries(query: SeriesQuery): Promise<SeriesRespo
     fixtureId,
     dataset,
     market,
+    period,
     outcome,
     readingsMatched: buckets.reduce((sum, b) => sum + b.n, 0),
     points: buckets.map(({ ts, pct }) => ({ ts: Number(ts), pct })),
@@ -157,12 +203,12 @@ export async function downsampledSeries(query: SeriesQuery): Promise<SeriesRespo
  * of the next page rather than lost.
  */
 export async function seriesPage(query: SeriesPageQuery): Promise<SeriesPageResponse> {
-  const { fixtureId, market, outcome } = query;
-  const dataset = query.dataset ?? DEFAULT_DATASET;
+  const { fixtureId, market, outcome, dataset, period } = query;
   const limit = clamp(query.limit ?? DEFAULT_PAGE_LIMIT, 1, MAX_PAGE_LIMIT);
+  // Validate the line BEFORE opening a connection, so a contradictory query fails offline.
+  const match = matchLine(query);
   const db = await getDb();
 
-  const match = matchLine(fixtureId, market, dataset);
   if (query.cursor != null && Number.isFinite(query.cursor)) {
     match.ts = { $gt: new Date(query.cursor) };
   }
@@ -187,6 +233,7 @@ export async function seriesPage(query: SeriesPageQuery): Promise<SeriesPageResp
     fixtureId,
     dataset,
     market,
+    period,
     outcome,
     limit,
     points: page,
@@ -202,17 +249,14 @@ export async function seriesPage(query: SeriesPageQuery): Promise<SeriesPageResp
  * must be contiguous REAL readings (the chart claims every bar is one reading off the wire),
  * so this one path deliberately does not downsample.
  */
-export async function lineSeries(
-  fixtureId: number,
-  market: string,
-  outcome: string,
-  dataset: Dataset = DEFAULT_DATASET,
-): Promise<Reading[]> {
+export async function lineSeries(selector: LineSelector, outcome: string): Promise<Reading[]> {
+  // Validate the line BEFORE opening a connection, so a contradictory query fails offline.
+  const match = matchLine(selector);
   const db = await getDb();
   const rows = await db
     .collection(COLLECTION)
     .aggregate<{ ts: number; pct: number }>([
-      { $match: matchLine(fixtureId, market, dataset) },
+      { $match: match },
       { $sort: { ts: 1 } },
       ...projectOutcome(outcome),
       { $project: { _id: 0, ts: { $toLong: "$ts" }, pct: 1 } },

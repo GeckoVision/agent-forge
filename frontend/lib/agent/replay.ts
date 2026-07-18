@@ -15,6 +15,8 @@
  * import may reach it, or the driver would be pulled into the browser bundle.
  */
 
+import { FIRST_HALF, type MarketPeriod } from "@/lib/mongo/types";
+
 export interface Reading {
   /** Capture timestamp, ms since epoch — the real moment the book moved. */
   ts: number;
@@ -62,6 +64,12 @@ export interface ReplaySlice {
   line: {
     bookmaker: string;
     market: string;
+    /**
+     * Which period of the match the charted line covers. Always {@link FULL_MATCH} here — the
+     * full-match and first-half lines are separate series that must never be blended — but it
+     * is carried and rendered so the chart states which one it is drawing.
+     */
+    period: MarketPeriod;
     outcome: string;
     readingsOnLine: number;
     windowStart: number;
@@ -75,14 +83,26 @@ export function fixtureLabel(slice: ReplaySlice): string {
   return `${slice.fixture.participant1} v ${slice.fixture.participant2}`;
 }
 
-/** A human market label — the raw TxLINE line id is exported verbatim so it stays auditable. */
+/**
+ * A human market label — the raw TxLINE line id is exported verbatim so it stays auditable.
+ *
+ * The period is appended because it is not optional information: TxLINE publishes the
+ * full-match and first-half lines of the same market family, they move independently, and a
+ * label that omits which one is charted describes two different series equally well.
+ */
 export function lineLabel(slice: ReplaySlice): string {
   const [market, params] = slice.line.market.split("|");
   const pretty = market
     .toLowerCase()
     .replace(/_/g, " ")
     .replace("overunder participant goals", "over/under goals");
-  return params ? `${pretty} (${params.replace("line=", "")})` : pretty;
+  const named = params ? `${pretty} (${params.replace("line=", "")})` : pretty;
+  return `${named} · ${periodLabel(slice.line.period)}`;
+}
+
+/** How a {@link MarketPeriod} reads in the UI. */
+export function periodLabel(period: MarketPeriod): string {
+  return period === FIRST_HALF ? "1st half" : "full match";
 }
 
 export function formatCaptureDate(ms: number): string {

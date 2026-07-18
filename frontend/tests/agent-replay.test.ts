@@ -11,7 +11,9 @@ import {
   type ReplaySlice,
 } from "@/lib/agent/replay";
 import { buildReplaySlice, ReplayUnavailableError, type ReplayReaders } from "@/lib/mongo/replay";
-import type { FixtureMeta, Reading } from "@/lib/mongo/types";
+import type { Dataset, FixtureMeta, Reading } from "@/lib/mongo/types";
+
+const DATASET: Dataset = "worldcup_prematch";
 
 /**
  * The /agent page's odds now come from MongoDB, so these tests exercise the COMPOSITION —
@@ -70,7 +72,8 @@ function readers(over: Partial<ReplayReaders> = {}): ReplayReaders {
   };
 }
 
-const slice = (): Promise<ReplaySlice> => buildReplaySlice({ readers: readers() });
+const slice = (): Promise<ReplaySlice> =>
+  buildReplaySlice({ dataset: DATASET, readers: readers() });
 
 describe("recorded replay composed from the capture database", () => {
   it("is labelled recorded, never live — even though it is served from a database", async () => {
@@ -133,15 +136,18 @@ describe("recorded replay composed from the capture database", () => {
 
   /**
    * REGRESSION: the window used to be fixed offsets carried in the export artifact. Those
-   * offsets indexed the export's own 178-reading copy of the line; the database holds 335
-   * readings of it, so the window landed well before the move and the chart rendered 40 real
-   * readings without ever highlighting the move its caption described. The window must be
-   * derived from the move, so that wherever the move sits in the line, it is charted.
+   * offsets index the export's OWN copy of the line, and the database's copy need not agree
+   * with it — an earlier load returned 335 readings where the export had 178, so the window
+   * landed well before the move and the chart rendered 40 real readings without ever
+   * highlighting the move its caption described. The window must be derived from the move, so
+   * that wherever the move sits in the line — and however the capture is reloaded — it is
+   * charted. Parameterised over the move's position for exactly that reason.
    */
   it.each([12, 60, 200, 334])(
     "charts the flagged move wherever it sits in the line (index %i)",
     async (moveAt) => {
       const s = await buildReplaySlice({
+        dataset: DATASET,
         readers: readers({ readLine: async () => fakeSeries(335, moveAt) }),
       });
       const at = moveIndex(s);
@@ -158,13 +164,13 @@ describe("recorded replay composed from the capture database", () => {
 describe("recorded replay fails honestly", () => {
   it("refuses to render when the database holds no readings for the line", async () => {
     await expect(
-      buildReplaySlice({ readers: readers({ readLine: async () => [] }) }),
+      buildReplaySlice({ dataset: DATASET, readers: readers({ readLine: async () => [] }) }),
     ).rejects.toBeInstanceOf(ReplayUnavailableError);
   });
 
   it("refuses to render when the database holds no such fixture", async () => {
     await expect(
-      buildReplaySlice({ readers: readers({ readFixture: async () => null }) }),
+      buildReplaySlice({ dataset: DATASET, readers: readers({ readFixture: async () => null }) }),
     ).rejects.toBeInstanceOf(ReplayUnavailableError);
   });
 
@@ -173,7 +179,7 @@ describe("recorded replay fails honestly", () => {
     // highlight a bar that is not the move described beside it.
     const shifted = fakeSeries().map((r) => ({ ts: r.ts + 7, pct: r.pct }));
     await expect(
-      buildReplaySlice({ readers: readers({ readLine: async () => shifted }) }),
+      buildReplaySlice({ dataset: DATASET, readers: readers({ readLine: async () => shifted }) }),
     ).rejects.toBeInstanceOf(ReplayUnavailableError);
   });
 });
