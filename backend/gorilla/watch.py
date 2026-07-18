@@ -34,7 +34,12 @@ from typing import TYPE_CHECKING, Protocol, TextIO
 from .agent import BET_PURPOSE, to_tx_intent
 from .decision import BetIntent, RiskPolicy, decide
 from .detector import OddsSnapshot, SharpDetector, SharpMove
-from .fixtures import Fixture, history_world_cup_fixtures, pick_world_cup_fixture
+from .fixtures import (
+    Fixture,
+    history_world_cup_fixtures,
+    pick_from_candidates,
+    world_cup_fixtures,
+)
 from .settlement import CREATE_PURPOSE
 from .solana_rpc import RpcError
 from .staking import StakingError
@@ -119,6 +124,10 @@ class ChainExecutor:
     fixture_id: int
     stat_key: int
     cap_sol: float
+    # Oracle-coverage evidence from the SAME source the stream was resolved from (live snapshot
+    # or captured history). Required — ensure_market refuses to create without an answer,
+    # because a market for an uncovered fixture could never settle.
+    covered: Callable[[int], bool]
     log: Callable[[str], None] | None = None
     _wallet: "LocalDevnetWallet | None" = field(default=None, init=False)
     _market: "LiveMarket | None" = field(default=None, init=False)
@@ -145,6 +154,7 @@ class ChainExecutor:
                 wallet=wallet,
                 fixture_id=self.fixture_id,
                 stat_key=self.stat_key,
+                covered=self.covered,
                 log=self.log,
             )
             self._market = market
@@ -312,6 +322,9 @@ class WatchSource:
     fixture: Fixture | None
     origin: str  # human label printed in the header — must never overstate the source
     synthetic: bool
+    # Fixture ids the resolved source actually carries — the oracle-coverage evidence handed to
+    # the chain executor. Empty for the synthetic source (which never reaches a real signer).
+    covered_ids: frozenset[int]
 
 
 def resolve_source(args: argparse.Namespace, *, out: TextIO) -> WatchSource:
@@ -321,7 +334,9 @@ def resolve_source(args: argparse.Namespace, *, out: TextIO) -> WatchSource:
     the scripted replay — if the live API is gone, the agent replays what the API actually
     said, or it fails."""
     if args.offline:
-        return WatchSource(recorded_stream(), None, "scripted offline market (SYNTHETIC)", True)
+        return WatchSource(
+            recorded_stream(), None, "scripted offline market (SYNTHETIC)", True, frozenset()
+        )
 
     session = TxoddsSession.load()
     if session is not None and session.is_expired():
@@ -330,26 +345,42 @@ def resolve_source(args: argparse.Namespace, *, out: TextIO) -> WatchSource:
 
     if not args.history and session is not None:
         try:
-            fixture = pick_world_cup_fixture(args.fixture, session=session)
+            # ONE fetch serves both the pick and the coverage evidence: a fixture is covered
+            # iff it appears in the live TxLINE fixtures snapshot the watch reads anyway.
+            candidates = world_cup_fixtures(session=session)
+            fixture = pick_from_candidates(candidates, args.fixture)
             feed = TxlineFeed(mode="live", session=session)
             snapshots = feed.updates(fixture.fixture_id)
             if args.max_readings:
                 snapshots = snapshots[: args.max_readings]
             if snapshots:
-                return WatchSource(snapshots, fixture, "LIVE TxLINE feed", False)
+                return WatchSource(
+                    snapshots,
+                    fixture,
+                    "LIVE TxLINE feed",
+                    False,
+                    frozenset(f.fixture_id for f in candidates),
+                )
             print("  note: the live feed returned no odds for this fixture", file=out)
         except (FeedError, SessionError) as exc:
             print(f"  note: live feed unavailable ({exc})", file=out)
 
-    # Fallback: the real captured history (real wire records, replayed in order).
-    fixture = _history_fixture(args.fixture)
+    # Fallback: the real captured history (real wire records, replayed in order). Presence in
+    # the capture IS the coverage evidence — every record in it came off the TxODDS wire.
+    history_candidates = history_world_cup_fixtures()
+    fixture = _history_fixture(args.fixture, history_candidates)
     snapshots = history_replay(fixture.fixture_id, limit=args.max_readings)
-    return WatchSource(snapshots, fixture, "REAL captured TxODDS history (replay)", False)
+    return WatchSource(
+        snapshots,
+        fixture,
+        "REAL captured TxODDS history (replay)",
+        False,
+        frozenset(f.fixture_id for f in history_candidates),
+    )
 
 
-def _history_fixture(fixture_id: int | None) -> Fixture:
-    """Resolve the fixture from the capture, through the SAME competition filter."""
-    candidates = history_world_cup_fixtures()
+def _history_fixture(fixture_id: int | None, candidates: tuple[Fixture, ...]) -> Fixture:
+    """Resolve the fixture from the capture's candidate set (SAME competition filter)."""
     if not candidates:
         raise FeedError("the captured history holds no World Cup fixtures")
     if fixture_id is None:
@@ -512,6 +543,7 @@ def run_watch_command(args: argparse.Namespace, *, out: TextIO = sys.stdout) -> 
                 fixture_id,
                 args.stat_key,
                 args.cap,
+                covered=lambda fid: fid in source.covered_ids,
                 log=lambda line: print(_act_line(line), file=out),
             )
             risk = RiskPolicy(max_stake=args.stake, max_per_fixture=args.max_fixture)

@@ -49,6 +49,14 @@ class StakingError(Exception):
     """The live staking path could not complete (market unreadable, stake would revert)."""
 
 
+class UncoveredFixtureError(StakingError):
+    """The fixture is outside TxODDS coverage, so a market for it could NEVER settle.
+
+    Settle requires a Merkle proof against a root TxODDS commits; no coverage means no root,
+    which means every stake in the market would be stuck forever. A subtype of
+    :class:`StakingError` so the watch loop's existing refusal path catches and prints it."""
+
+
 @dataclass(frozen=True)
 class LiveMarket:
     """The on-chain market a watching agent stakes into."""
@@ -108,13 +116,37 @@ def ensure_market(
     stat_key: int = DEFAULT_STAT_KEY,
     predicate: TraderPredicate = DEFAULT_PREDICATE,
     period: int = DEFAULT_PERIOD,
+    covered: Callable[[int], bool] | None = None,
+    coverage_override: bool = False,
     log: Callable[[str], None] | None = None,
 ) -> LiveMarket:
     """Return the market for ``(fixture_id, stat_key)``, opening it on-chain if it is absent.
 
+    **Create only what can settle.** Settle requires a Merkle proof against a root TxODDS
+    commits, so a market for a fixture outside TxODDS coverage can never settle and every
+    stake in it is stuck forever. ``covered`` is the caller's coverage evidence (for the watch:
+    membership in the same fixture set it already resolved its stream from) and is consulted
+    BEFORE anything is read or sent — an uncovered fixture raises
+    :class:`UncoveredFixtureError`, even for an already-open market, because staking further
+    into a doomed market is the same loss. There is deliberately no passing default: a caller
+    with no coverage answer must say ``coverage_override=True`` explicitly (legitimate only for
+    synthetic nonce'd fixtures whose recorded proof settles against a recorded root), so the
+    safe path is the unmarked one.
+
     Idempotent: a re-run against an existing OPEN market reuses it (``create_sig`` is ``None``)
     rather than failing, so watching the same fixture twice does not need a fresh nonce. A
     market that has already SETTLED cannot be staked into and raises."""
+    if not coverage_override:
+        if covered is None:
+            raise ValueError(
+                "ensure_market needs a coverage answer: pass covered=... (fixture -> bool) or "
+                "opt out explicitly with coverage_override=True"
+            )
+        if not covered(fixture_id):
+            raise UncoveredFixtureError(
+                f"fixture {fixture_id} is not in TxODDS coverage — "
+                "a market for it could never settle"
+            )
     market, _ = market_pda(fixture_id, stat_key)
     existing = rpc.get_account_data(str(market))
     if existing is not None:

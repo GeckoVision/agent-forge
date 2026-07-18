@@ -139,6 +139,30 @@ def test_main_offline_act_flag_shows_sandbox_custody_line():
     assert "sandbox ref (NOT a transaction)" in text
 
 
+def test_an_uncovered_fixture_refusal_prints_and_never_breaks_the_watch_loop():
+    """The coverage gate must surface exactly like every other chain refusal: one honest
+    'on-chain stake not placed' line naming the fixture and the WHY, with the stream running
+    to completion — never an exception through the loop."""
+    from gorilla.decision import BetIntent
+    from gorilla.staking import UncoveredFixtureError
+    from gorilla.wallet import SignResult
+
+    class UncoveredExecutor:
+        def place(self, bet: BetIntent) -> SignResult:
+            raise UncoveredFixtureError(
+                f"fixture {bet.fixture_id} is not in TxODDS coverage — "
+                "a market for it could never settle"
+            )
+
+    buf = io.StringIO()
+    summary = run_watch(recorded_stream(), act=True, executor=UncoveredExecutor(), out=buf)
+    out = buf.getvalue()
+    assert summary.readings == 24  # the loop completed
+    assert summary.placed == 0 and summary.staked == 0.0
+    assert "on-chain stake not placed: fixture 42 is not in TxODDS coverage" in out
+    assert "could never settle" in out
+
+
 def test_act_without_an_executor_is_refused_rather_than_silently_faked():
     """The regression this whole change exists to prevent: ``act`` must never fall back to a
     fake wallet by default. No executor -> a loud error, not a sandbox signature."""
