@@ -1,10 +1,14 @@
 import { Ban, CircleCheck } from "lucide-react";
 
-const EXCUSES = ["“Under review.”", "“Check back later.”", "Somehow it went the other way."];
+const EXCUSES = [
+  "The old bookie: “under review,” “check back later.”",
+  "Win too often, and your account gets limited.",
+  "The new apps: big players push the number right at the end.",
+];
 const PROMISES = [
-  "No person decides who won.",
-  "No company holds your cash.",
-  "The match data decides — the payout is automatic.",
+  "Nobody decides who won.",
+  "Nobody holds your money.",
+  "The winner is the real score — and no one can move that.",
 ];
 
 /** The emotional contrast beat — a dark, atmospheric purple→gold poster band. */
@@ -35,13 +39,28 @@ export function ProblemSection() {
           The problem
         </p>
         <h2 className="display-poster mt-4 max-w-3xl text-balance">
-          You win. Then the excuses start.
+          The bet is fair. The payout is where they get you.
         </h2>
         <p className="body-l mt-6 max-w-2xl text-muted-foreground text-pretty">
-          “Under review.” “Check back later.” Or a result that somehow went the
-          other way. You did everything right and walked away with nothing.
-          Gorilla ends that — no person decides who won, no company holds your
-          cash. The match data decides, and the payout is automatic.
+          The old bookie stalls your payout, or limits your account when you keep
+          winning. The newer betting apps have a quieter problem: when you’re
+          betting on a price that people can trade, big players shove that price
+          around at the last second to win the bet. Researchers measured it in
+          2026 — the money came{" "}
+          <span className="text-foreground">mostly from regular players</span>.
+        </p>
+        <p className="body-l mt-4 max-w-2xl text-muted-foreground text-pretty">
+          Both come down to the same thing: you can’t trust who decides the
+          result. Gorilla decides it with the one thing nobody can push around —
+          the final score.{" "}
+          <a
+            href="https://arxiv.org/abs/2606.31675"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gold underline decoration-gold/40 underline-offset-4 hover:decoration-gold"
+          >
+            See the research →
+          </a>
         </p>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2">
@@ -56,7 +75,7 @@ export function ProblemSection() {
               ))}
             </ul>
             <p className="mt-5 border-t border-no/20 pt-4 text-sm font-medium text-foreground">
-              You won. You waited. You got nothing.
+              Different trick, same ending: someone else decides if you won.
             </p>
           </div>
 
@@ -71,7 +90,7 @@ export function ProblemSection() {
               ))}
             </ul>
             <p className="mt-5 border-t border-primary/20 pt-4 text-sm font-semibold text-primary">
-              You win, you get paid. Full stop.
+              Nobody in the middle. You win, you get paid.
             </p>
           </div>
         </div>

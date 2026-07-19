@@ -114,14 +114,14 @@ export function PosterHero() {
             className="hero-anim-reveal text-balance text-2xl font-semibold leading-snug tracking-tight text-foreground sm:text-3xl"
             style={{ animationDelay: "0.05s" }}
           >
-            You won the bet. Getting paid shouldn&apos;t be the hard part.
+            You win, you get paid. No hidden tricks.
           </h1>
           <p
             className="hero-anim-reveal mx-auto mt-5 max-w-md text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
             style={{ animationDelay: "0.2s" }}
           >
-            Gorilla settles it on-chain — the match data pays the winners
-            automatically. No bookie, no excuses.
+            Bet against real people, not the house. The final score pays the
+            winners on its own — nobody decides it, nobody can touch it.
           </p>
         </div>
       </div>
