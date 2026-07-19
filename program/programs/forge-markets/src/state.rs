@@ -5,7 +5,7 @@
 
 use anchor_lang::prelude::*;
 
-use crate::txoracle_cpi::TraderPredicate;
+use settlement_core::TraderPredicate;
 
 /// Which side of the market a stake / the settled outcome is on.
 ///

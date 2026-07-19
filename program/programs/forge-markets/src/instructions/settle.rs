@@ -1,30 +1,29 @@
 //! `settle(ts, fixture_summary, fixture_proof, main_tree_proof, stat_a, stat_b?, op?)`
-//! — the trustless heart of the program.
+//! — the trustless heart of the program, now a THIN consumer of settlement-core.
 //!
-//! It CPIs `txoracle::validate_stat` with the market's OWN predicate and the
-//! caller-supplied 3-stage Merkle proof. The oracle proves the stat against its
-//! on-chain root, evaluates the predicate, and returns `Ok(bool)` — the outcome:
-//!   - CPI `Ok(true)`  ⇒ the predicate held        ⇒ `winner = Yes`, `state = Settled`.
-//!   - CPI `Ok(false)` ⇒ the predicate did NOT hold ⇒ `winner = No`,  `state = Settled`.
-//!   - CPI `Err`       ⇒ the proof was invalid (tampered) ⇒ the error PROPAGATES and
-//!     the whole `settle` reverts, market stays `Open`. **The program never inspects
-//!     the proof or evaluates the predicate itself — the oracle's Ok/Err (revert) and
-//!     the returned bool ARE the trust guarantee.**
+//! forge-markets no longer owns the trustless core. `settle` reads its market's
+//! `(fixture_id, stat_key, period, predicate)`, builds a `PredicateQuery`, and CPIs
+//! `settlement_core::resolve`. The ENGINE enforces the F1 binding (fixture / stat /
+//! single-stat / period), CPIs `txoracle::validate_stat`, and returns the certified
+//! bool — or reverts on a tampered proof (the revert propagates through the engine
+//! into `settle`, the whole trust guarantee). forge-markets keeps only the
+//! outcome-application half: map the bool to a `Side`, write `winner`/`state`.
 //!
-//! Both YES and NO are captured in this single `settle`: a false predicate is a
-//! legitimate `Ok(false)` outcome (read from the CPI's return data), NOT a revert,
-//! so no separate `settle_no` / complementary-predicate proof is needed. Only a
-//! tampered proof reverts.
+//!   - engine `Ok(true)`  ⇒ predicate held        ⇒ `winner = Yes`, `state = Settled`.
+//!   - engine `Ok(false)` ⇒ predicate did NOT hold ⇒ `winner = No`,  `state = Settled`.
+//!   - engine `Err`       ⇒ tampered/undecodable/unbound ⇒ `settle` reverts, Open.
+//!
+//! The F1 binding that used to live here (former settle.rs:71-91) now lives ONCE in
+//! the engine, operating on the query — forge-markets no longer duplicates it.
 
 use anchor_lang::prelude::*;
+use settlement_core::{
+    BinaryExpression, PredicateQuery, ProofNode, ScoresBatchSummary, StatTerm, TXORACLE_PROGRAM_ID,
+};
 
 use crate::errors::SettlementError;
 use crate::interface::MARKET_SEED;
 use crate::state::{Market, MarketState, Side};
-use crate::txoracle_cpi::{
-    cpi_validate_stat, BinaryExpression, ProofNode, ScoresBatchSummary, StatTerm,
-    TXORACLE_PROGRAM_ID,
-};
 
 #[derive(Accounts)]
 pub struct Settle<'info> {
@@ -40,13 +39,18 @@ pub struct Settle<'info> {
     )]
     pub market: Account<'info, Market>,
 
-    /// CHECK: The txoracle-owned account holding the daily Merkle roots. It is
-    /// passed straight through to `validate_stat`; this program never interprets
-    /// its bytes (that is the oracle's job), so it is an unchecked passthrough.
+    /// CHECK: The settlement-core ENGINE program. Pinned by address so a caller
+    /// cannot redirect the `resolve` CPI to a look-alike engine (the engine in turn
+    /// pins txoracle — defense in depth at both hops).
+    #[account(address = settlement_core::ID @ SettlementError::WrongEngineProgram)]
+    pub settlement_engine: UncheckedAccount<'info>,
+
+    /// CHECK: The txoracle-owned daily-roots account. Threaded through settle →
+    /// engine → txoracle; this program never interprets its bytes.
     pub daily_scores_merkle_roots: UncheckedAccount<'info>,
 
-    /// CHECK: The txoracle program. Pinned by address to the known program id so a
-    /// caller cannot redirect the CPI to a look-alike program.
+    /// CHECK: The txoracle program. Pinned by address here too (belt-and-braces
+    /// over the engine's own pin) so the wrong-oracle rejection stays early.
     #[account(address = TXORACLE_PROGRAM_ID @ SettlementError::WrongOracleProgram)]
     pub txoracle_program: UncheckedAccount<'info>,
 }
@@ -62,53 +66,34 @@ pub fn settle_handler(
     stat_b: Option<StatTerm>,
     op: Option<BinaryExpression>,
 ) -> Result<()> {
-    // ── F1: bind the caller-supplied oracle args to THIS market BEFORE the CPI ──
-    // `settle` is permissionless. `validate_stat` only proves "this stat is genuine
-    // in a genuine fixture" — it has NO concept of the market. So without these
-    // checks an attacker submits a genuine proof for a DIFFERENT TxODDS data point
-    // whose value yields their preferred outcome and drains the pot. Pin the proof
-    // to the market's fixture, stat, single-stat shape, and period.
-    require!(
-        fixture_summary.fixture_id == ctx.accounts.market.fixture_id,
-        SettlementError::FixtureMismatch
-    );
-    require!(
-        stat_a.stat_to_prove.key == ctx.accounts.market.stat_key,
-        SettlementError::StatMismatch
-    );
-    // The market predicate is single-stat; a two-stat Add/Subtract could move the
-    // evaluated value off the bound stat_key, so no stat_b / op is permitted.
-    require!(
-        stat_b.is_none() && op.is_none(),
-        SettlementError::MultiStatNotAllowed
-    );
-    // Period binds the proof to the market's phase (e.g. full-time, not half-time):
-    // the same fixture+stat has different values per period, which would flip the
-    // outcome if left unbound.
-    require!(
-        stat_a.stat_to_prove.period == ctx.accounts.market.period,
-        SettlementError::PeriodMismatch
-    );
+    // Build the market's declared query — the engine binds the caller's oracle args
+    // to exactly this (fixture, stat, period, predicate) before proving anything.
+    let market = &ctx.accounts.market;
+    let query = PredicateQuery {
+        fixture_id: market.fixture_id,
+        stat_key: market.stat_key,
+        period: market.period,
+        predicate: market.predicate,
+    };
 
-    let predicate = ctx.accounts.market.predicate;
-
-    // Trustless outcome: the oracle CPI decides. A tampered proof makes the CPI
-    // return Err, which aborts settle (the revert IS the guarantee). A well-formed
-    // proof returns Ok(bool): true = predicate held (YES), false = did not (NO).
-    let predicate_held = cpi_validate_stat(
-        &ctx.accounts.txoracle_program.to_account_info(),
+    // CPI the engine: F1 binding + txoracle CPI + fail-closed decode happen inside.
+    // A tampered/unbound proof makes this return Err → settle reverts. A well-formed,
+    // bound proof returns Ok(bool): true = predicate held (YES), false = did not (NO).
+    let predicate_held = settlement_core::client::resolve(
+        &ctx.accounts.settlement_engine.to_account_info(),
         &ctx.accounts.daily_scores_merkle_roots.to_account_info(),
+        &ctx.accounts.txoracle_program.to_account_info(),
+        &query,
         ts,
         &fixture_summary,
         &fixture_proof,
         &main_tree_proof,
-        &predicate,
         &stat_a,
         &stat_b,
         &op,
     )?;
 
-    // Record the outcome the oracle certified — YES or NO. Both are Settled.
+    // Outcome-application half (kept local — the Gorilla-specific part).
     let winner = if predicate_held { Side::Yes } else { Side::No };
     let market = &mut ctx.accounts.market;
     market.winner = winner;

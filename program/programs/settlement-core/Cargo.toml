@@ -1,0 +1,26 @@
+[package]
+name = "settlement-core"
+version = "0.1.0"
+description = "Reusable trustless settlement primitive — a thin engine program consumers CPI to resolve a PredicateQuery against TxODDS txoracle::validate_stat, with the F1 binding enforced centrally. Anchor 1.0."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "settlement_core"
+
+[features]
+default = []
+# Build the engine pinned to the TxODDS MAINNET txoracle id instead of devnet.
+mainnet-oracle = []
+# Consumers depend on this crate with `features = ["cpi"]` to link the `cpi::resolve`
+# helper + shared types WITHOUT pulling in a second program entrypoint.
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "1.0.2"

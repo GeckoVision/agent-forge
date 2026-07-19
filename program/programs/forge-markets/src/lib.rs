@@ -37,11 +37,13 @@ pub mod errors;
 pub mod instructions;
 pub mod interface;
 pub mod state;
-pub mod txoracle_cpi;
 
 use instructions::*;
 use state::Side;
-use txoracle_cpi::{BinaryExpression, ProofNode, ScoresBatchSummary, StatTerm, TraderPredicate};
+// The oracle-arg types + predicate now live in the settlement-core ENGINE (the
+// single source of truth); forge-markets imports them and forwards them to
+// `settlement_core::cpi::resolve` at settle.
+use settlement_core::{BinaryExpression, ProofNode, ScoresBatchSummary, StatTerm, TraderPredicate};
 
 declare_id!("7Pvo6SEh1zBa1Euvj5QQ4td9GpfsQosTpxhqwWtWUFt6");
 

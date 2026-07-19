@@ -8,7 +8,7 @@ use anchor_lang::prelude::*;
 
 use crate::interface::{MARKET_SEED, SCHEMA_VERSION, VAULT_SEED};
 use crate::state::{Market, MarketState, Side};
-use crate::txoracle_cpi::TraderPredicate;
+use settlement_core::TraderPredicate;
 
 #[derive(Accounts)]
 #[instruction(fixture_id: i64, stat_key: u32)]

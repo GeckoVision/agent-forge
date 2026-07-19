@@ -35,6 +35,18 @@ pub const SETTLEMENT_ID: Pubkey =
 /// TxODDS txoracle program id (devnet) — the double is loaded here.
 pub const TXORACLE_ID: Pubkey = solana_sdk::pubkey!("6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J");
 
+/// settlement-core ENGINE program id. `settle` now CPIs the engine (which CPIs the
+/// txoracle double) — so the suite loads THREE programs, and `ix_settle` carries the
+/// engine account through. Matches `declare_id!` in settlement-core.
+pub const SETTLEMENT_ENGINE_ID: Pubkey =
+    solana_sdk::pubkey!("Et7X2jeZY6iNVDjz3jUUydm3ni3vWi8sPB4t59okNdxT");
+
+/// forge-insurance program id — the SECOND consumer of the engine. Matches
+/// `declare_id!` in forge-insurance. Loaded alongside forge-markets so the killer
+/// suite drives BOTH consumers against the SAME engine + txoracle double.
+pub const FORGE_INSURANCE_ID: Pubkey =
+    solana_sdk::pubkey!("5WNptSKnJvJYc141h9ACAcU5ENSXkk7puk4CpXzUfVQs");
+
 pub const SYSTEM_PROGRAM: Pubkey = solana_sdk::pubkey!("11111111111111111111111111111111");
 
 /// The IDL-declared discriminator for `txoracle::validate_stat` (verbatim). The
@@ -45,6 +57,9 @@ pub const VALIDATE_STAT_DISC_IDL: [u8; 8] = [107, 197, 232, 90, 191, 136, 105, 1
 pub const MARKET_SEED: &[u8] = b"market";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const POSITION_SEED: &[u8] = b"position";
+// forge-insurance seeds (mirror forge-insurance/src/interface.rs).
+pub const POLICY_SEED: &[u8] = b"policy";
+pub const PVAULT_SEED: &[u8] = b"pvault";
 
 // ============================ mirrored borsh types ============================
 // Byte-for-byte the settlement program's Anchor types (Anchor == Borsh).
@@ -161,6 +176,43 @@ pub fn decode_position(data: &[u8]) -> Option<PositionView> {
     PositionView::try_from_slice(&data[8..]).ok()
 }
 
+/// forge-insurance `PolicyState` (mirror forge-insurance/src/state.rs).
+#[derive(BorshSerialize, BorshDeserialize, Clone, Copy, PartialEq, Debug)]
+pub enum PolicyState {
+    Open,
+    Funded,
+    Settled,
+    Claimed,
+}
+
+/// Decoded `Policy` (field order mirrors forge-insurance/src/state.rs exactly).
+#[derive(BorshDeserialize, Debug)]
+pub struct PolicyView {
+    pub fixture_id: i64,
+    pub stat_key: u32,
+    pub period: i32,
+    pub predicate: TraderPredicate,
+    pub insurer: [u8; 32],
+    pub insured: [u8; 32],
+    pub coverage: u64,
+    pub premium: u64,
+    pub pvault: [u8; 32],
+    pub state: PolicyState,
+    pub event_occurred: bool,
+    pub claimed: bool,
+    pub bump: u8,
+    pub pvault_bump: u8,
+    pub schema_version: u8,
+    pub _reserved: [u8; 24],
+}
+
+pub fn decode_policy(data: &[u8]) -> Option<PolicyView> {
+    if data.len() < 8 {
+        return None;
+    }
+    PolicyView::try_from_slice(&data[8..]).ok()
+}
+
 // ============================ discriminators / PDAs ============================
 
 pub fn ix_disc(name: &str) -> [u8; 8] {
@@ -195,6 +247,22 @@ pub fn position_pda(market: &Pubkey, staker: &Pubkey) -> (Pubkey, u8) {
     )
 }
 
+pub fn policy_pda(fixture_id: i64, stat_key: u32, insured: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            POLICY_SEED,
+            &fixture_id.to_le_bytes(),
+            &stat_key.to_le_bytes(),
+            insured.as_ref(),
+        ],
+        &FORGE_INSURANCE_ID,
+    )
+}
+
+pub fn pvault_pda(policy: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[PVAULT_SEED, policy.as_ref()], &FORGE_INSURANCE_ID)
+}
+
 // ============================ account fixtures ================================
 
 pub fn funded(lamports: u64) -> Account {
@@ -225,6 +293,15 @@ pub fn system_program_entry() -> (Pubkey, Account) {
 /// runtime treat `TXORACLE_ID` as an executable program for the CPI.
 pub fn txoracle_program_entry() -> (Pubkey, Account) {
     (TXORACLE_ID, create_program_account_loader_v3(&TXORACLE_ID))
+}
+
+/// The settlement-core engine program account (loader-v3 stub) so the runtime
+/// treats `SETTLEMENT_ENGINE_ID` as executable for the settle → resolve CPI.
+pub fn engine_program_entry() -> (Pubkey, Account) {
+    (
+        SETTLEMENT_ENGINE_ID,
+        create_program_account_loader_v3(&SETTLEMENT_ENGINE_ID),
+    )
 }
 
 /// The txoracle-owned `daily_scores_merkle_roots` account. The double reads its
@@ -344,8 +421,11 @@ pub fn ix_settle(
 ) -> Instruction {
     Instruction {
         program_id: SETTLEMENT_ID,
+        // Field order MUST match the new Settle context: market, settlement_engine,
+        // daily_scores_merkle_roots, txoracle_program.
         accounts: vec![
             AccountMeta::new(*market, false),
+            AccountMeta::new_readonly(SETTLEMENT_ENGINE_ID, false),
             AccountMeta::new_readonly(*daily_roots, false),
             AccountMeta::new_readonly(*txoracle_program, false),
         ],
@@ -377,6 +457,151 @@ pub fn ix_claim(market: &Pubkey, staker: &Pubkey) -> Instruction {
     }
 }
 
+// ==================== forge-insurance (second consumer) builders =============
+
+pub fn data_open_policy(
+    fixture_id: i64,
+    stat_key: u32,
+    period: i32,
+    predicate: &TraderPredicate,
+    coverage: u64,
+) -> Vec<u8> {
+    let mut d = ix_disc("open_policy").to_vec();
+    d.extend_from_slice(&borsh::to_vec(&fixture_id).unwrap());
+    d.extend_from_slice(&borsh::to_vec(&stat_key).unwrap());
+    d.extend_from_slice(&borsh::to_vec(&period).unwrap());
+    d.extend_from_slice(&borsh::to_vec(predicate).unwrap());
+    d.extend_from_slice(&borsh::to_vec(&coverage).unwrap());
+    d
+}
+
+pub fn data_bind_policy(premium: u64) -> Vec<u8> {
+    let mut d = ix_disc("bind_policy").to_vec();
+    d.extend_from_slice(&borsh::to_vec(&premium).unwrap());
+    d
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn data_settle_policy(
+    ts: i64,
+    fixture_summary: &ScoresBatchSummary,
+    fixture_proof: &Vec<ProofNode>,
+    main_tree_proof: &Vec<ProofNode>,
+    stat_a: &StatTerm,
+    stat_b: &Option<StatTerm>,
+    op: &Option<BinaryExpression>,
+) -> Vec<u8> {
+    let mut d = ix_disc("settle_policy").to_vec();
+    d.extend_from_slice(&borsh::to_vec(&ts).unwrap());
+    d.extend_from_slice(&borsh::to_vec(fixture_summary).unwrap());
+    d.extend_from_slice(&borsh::to_vec(fixture_proof).unwrap());
+    d.extend_from_slice(&borsh::to_vec(main_tree_proof).unwrap());
+    d.extend_from_slice(&borsh::to_vec(stat_a).unwrap());
+    d.extend_from_slice(&borsh::to_vec(stat_b).unwrap());
+    d.extend_from_slice(&borsh::to_vec(op).unwrap());
+    d
+}
+
+pub fn data_claim_policy() -> Vec<u8> {
+    ix_disc("claim_policy").to_vec()
+}
+
+/// OpenPolicy accounts: policy, pvault, insured, insurer(signer), system_program.
+pub fn ix_open_policy(
+    insurer: &Pubkey,
+    insured: &Pubkey,
+    fixture_id: i64,
+    stat_key: u32,
+    period: i32,
+    predicate: &TraderPredicate,
+    coverage: u64,
+) -> Instruction {
+    let (policy, _) = policy_pda(fixture_id, stat_key, insured);
+    let (pvault, _) = pvault_pda(&policy);
+    Instruction {
+        program_id: FORGE_INSURANCE_ID,
+        accounts: vec![
+            AccountMeta::new(policy, false),
+            AccountMeta::new(pvault, false),
+            AccountMeta::new_readonly(*insured, false),
+            AccountMeta::new(*insurer, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: data_open_policy(fixture_id, stat_key, period, predicate, coverage),
+    }
+}
+
+/// BindPolicy accounts: policy, pvault, insured(signer), system_program.
+pub fn ix_bind_policy(policy: &Pubkey, insured: &Pubkey, premium: u64) -> Instruction {
+    let (pvault, _) = pvault_pda(policy);
+    Instruction {
+        program_id: FORGE_INSURANCE_ID,
+        accounts: vec![
+            AccountMeta::new(*policy, false),
+            AccountMeta::new(pvault, false),
+            AccountMeta::new(*insured, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: data_bind_policy(premium),
+    }
+}
+
+/// SettlePolicy accounts: policy, settlement_engine, daily_roots, txoracle_program.
+#[allow(clippy::too_many_arguments)]
+pub fn ix_settle_policy(
+    policy: &Pubkey,
+    daily_roots: &Pubkey,
+    txoracle_program: &Pubkey,
+    ts: i64,
+    fixture_summary: &ScoresBatchSummary,
+    fixture_proof: &Vec<ProofNode>,
+    main_tree_proof: &Vec<ProofNode>,
+    stat_a: &StatTerm,
+    stat_b: &Option<StatTerm>,
+    op: &Option<BinaryExpression>,
+) -> Instruction {
+    Instruction {
+        program_id: FORGE_INSURANCE_ID,
+        accounts: vec![
+            AccountMeta::new(*policy, false),
+            AccountMeta::new_readonly(SETTLEMENT_ENGINE_ID, false),
+            AccountMeta::new_readonly(*daily_roots, false),
+            AccountMeta::new_readonly(*txoracle_program, false),
+        ],
+        data: data_settle_policy(
+            ts,
+            fixture_summary,
+            fixture_proof,
+            main_tree_proof,
+            stat_a,
+            stat_b,
+            op,
+        ),
+    }
+}
+
+/// ClaimPolicy accounts: policy, pvault, insured, insurer, claimant(signer), system.
+pub fn ix_claim_policy(
+    policy: &Pubkey,
+    insured: &Pubkey,
+    insurer: &Pubkey,
+    claimant: &Pubkey,
+) -> Instruction {
+    let (pvault, _) = pvault_pda(policy);
+    Instruction {
+        program_id: FORGE_INSURANCE_ID,
+        accounts: vec![
+            AccountMeta::new(*policy, false),
+            AccountMeta::new(pvault, false),
+            AccountMeta::new(*insured, false),
+            AccountMeta::new(*insurer, false),
+            AccountMeta::new_readonly(*claimant, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: data_claim_policy(),
+    }
+}
+
 // ============================ the threaded env ================================
 
 /// A tiny stateful harness: loads both programs into Mollusk and carries account
@@ -391,12 +616,19 @@ impl Env {
     /// real txoracle id) from SBF_OUT_DIR.
     pub fn new() -> Self {
         let mut mollusk = Mollusk::new(&SETTLEMENT_ID, "forge_markets");
+        // settle CPIs the engine, which CPIs the txoracle double — load all three,
+        // plus forge-insurance (the second consumer) so the killer suite drives BOTH
+        // consumers against the SAME engine in one harness.
+        mollusk.add_program(&SETTLEMENT_ENGINE_ID, "settlement_core");
+        mollusk.add_program(&FORGE_INSURANCE_ID, "forge_insurance");
         mollusk.add_program(&TXORACLE_ID, "mock_txoracle");
         let mut store = HashMap::new();
         let (sp, spa) = system_program_entry();
         store.insert(sp, spa);
         let (tp, tpa) = txoracle_program_entry();
         store.insert(tp, tpa);
+        let (ep, epa) = engine_program_entry();
+        store.insert(ep, epa);
         Self { mollusk, store }
     }
 

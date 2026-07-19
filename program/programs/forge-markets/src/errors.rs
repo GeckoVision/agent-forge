@@ -59,4 +59,9 @@ pub enum SettlementError {
 
     #[msg("Proven stat period does not match this market's period")]
     PeriodMismatch,
+
+    // ── appended: settle now CPIs the settlement-core ENGINE. Pin its program id
+    // so a caller cannot redirect the resolve CPI to a look-alike engine. ──
+    #[msg("Supplied settlement engine account does not match the expected program id")]
+    WrongEngineProgram,
 }

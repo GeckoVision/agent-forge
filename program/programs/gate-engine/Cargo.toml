@@ -1,0 +1,22 @@
+[package]
+name = "gate-engine"
+version = "0.1.0"
+description = "GATE PROBE ONLY — trivial engine that CPIs mock-txoracle and re-returns a bool, to prove return-data survives a two-hop CPI. Mollusk-only, NEVER deployed."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "gate_engine"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "1.0.2"

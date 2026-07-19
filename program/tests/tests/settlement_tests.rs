@@ -419,6 +419,37 @@ fn settle_rejects_multi_stat_expression() {
 }
 
 #[test]
+fn settle_rejects_overlong_proof() {
+    // Determinism / CU bound (SETTLEMENT-ENGINE.md): the engine `require!`s every
+    // supplied Merkle proof is <= MAX_PROOF_NODES (32). A proof longer than that —
+    // which would otherwise make settle cost an unbounded, caller-chosen amount of
+    // CU — is rejected by the engine BEFORE the txoracle CPI, so settle reverts and
+    // the market stays Open.
+    let (mut env, market, _, _) = setup_open_market(3 * SOL, 1 * SOL);
+    let (roots_key, _) = (Pubkey::new_unique(), 0u8);
+    env.set(roots_key, daily_roots_account(&true_root()));
+
+    let (ts, summary, _fp, mp, stat_a, stat_b, op) = settle_args(true_root());
+    // 33 nodes > MAX_PROOF_NODES (32) in the fixture_proof.
+    let overlong: Vec<ProofNode> = (0..33)
+        .map(|_| ProofNode {
+            hash: [7u8; 32],
+            is_right_sibling: false,
+        })
+        .collect();
+    let res = env.process(&ix_settle(
+        &market, &roots_key, &TXORACLE_ID, ts, &summary, &overlong, &mp, &stat_a, &stat_b, &op,
+    ));
+    assert!(
+        res.program_result.is_err(),
+        "settle must reject an over-length proof (engine ProofTooLong): {:?}",
+        res.program_result
+    );
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.state, MarketState::Open, "market must stay Open");
+}
+
+#[test]
 fn settle_rejects_period_mismatch() {
     let (mut env, market, _, _) = setup_open_market(3 * SOL, 1 * SOL);
     let (roots_key, _) = (Pubkey::new_unique(), 0u8);
