@@ -70,9 +70,10 @@ pub fn claim_handler(ctx: Context<Claim>) -> Result<()> {
         Side::Yes => market.stake_yes,
         Side::No => market.stake_no,
     };
-    // Honest v1 limit: if the market settled with an EMPTY winning side, this
-    // gate makes every claim fail and the pot stays stranded in the vault —
-    // there is no reclaim instruction yet for the losing stakers (planned).
+    // Honest limit: if the market settled with an EMPTY winning side, this gate
+    // makes every claim fail and the pot stays stranded in the vault. `reclaim`
+    // (#36) does NOT cover this — it refunds only a still-Open market, and this is
+    // a Settled terminal state. That boundary is documented, not accidental.
     require!(winner_total > 0, SettlementError::NoWinningStake);
 
     let pot = (market.stake_yes as u128)

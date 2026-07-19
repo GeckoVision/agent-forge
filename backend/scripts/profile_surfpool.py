@@ -210,7 +210,8 @@ def main() -> int:
     steps = [
         (
             "create_market",
-            create_market_tx(fixture_id, stat_key, predicate, period, authority.pubkey()),
+            # lock_ts = 0 (no cutoff) — CU-profiling rehearsal, not a real cutoff path.
+            create_market_tx(fixture_id, stat_key, predicate, period, 0, authority.pubkey()),
             authority,
             [authority],
         ),

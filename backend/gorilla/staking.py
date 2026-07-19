@@ -160,7 +160,10 @@ def ensure_market(
             log(f"market {market} already open (fixture {fixture_id}, stat {stat_key})")
         return LiveMarket(fixture_id, stat_key, str(market), None)
 
-    unsigned = create_market_tx(fixture_id, stat_key, predicate, period, wallet.pubkey)
+    # lock_ts = 0 (no betting cutoff) — preserves the prior behavior for these
+    # coverage-gated / synthetic markets. A market for a real upcoming fixture would
+    # pass a non-zero kickoff cutoff here (see stake.rs / create_market lock_ts).
+    unsigned = create_market_tx(fixture_id, stat_key, predicate, period, 0, wallet.pubkey)
     sig = wallet.sign_within_policy(
         TxIntent(
             CREATE_PURPOSE,

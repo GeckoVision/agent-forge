@@ -163,7 +163,10 @@ def run_settlement(
 
     # 1 · open the market (the funder is the authority) with a predicate that HOLDS
     #     and the proof's period (so settle's F1 period-binding matches).
-    create = create_market_tx(fixture_id, stat_key, predicate, period, funder.pubkey)
+    # lock_ts = 0 (no betting cutoff): this is the recorded-proof demo loop over a
+    # synthetic nonce'd fixture, so a kickoff cutoff is not meaningful here. A real
+    # upcoming-fixture market sets a non-zero lock_ts (see stake.rs / create_market).
+    create = create_market_tx(fixture_id, stat_key, predicate, period, 0, funder.pubkey)
     create_sig = funder.sign_within_policy(
         TxIntent(CREATE_PURPOSE, 0.0, f"open market {fixture_id}/{stat_key}", unsigned_tx=create)
     ).ref

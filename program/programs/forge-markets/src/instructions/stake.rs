@@ -20,10 +20,8 @@ pub struct Stake<'info> {
             &market.stat_key.to_le_bytes(),
         ],
         bump = market.bump,
-        // v1: `Open` is the ONLY gate — there is no time cutoff, so stakes are
-        // accepted until someone settles (even after kickoff / full-time, i.e.
-        // after the outcome is knowable). A `lock_ts` kickoff cutoff is planned,
-        // drawn from the Market `_reserved` tail (no realloc; see state.rs).
+        // Gate 1 of 2: the market must be Open. The time cutoff (`lock_ts`) is Gate 2,
+        // enforced in the handler because it reads the Clock sysvar.
         constraint = market.state == MarketState::Open @ SettlementError::MarketNotOpen,
     )]
     pub market: Account<'info, Market>,
@@ -52,6 +50,19 @@ pub struct Stake<'info> {
 
 pub fn stake_handler(ctx: Context<Stake>, side: Side, amount: u64) -> Result<()> {
     require!(amount > 0, SettlementError::ZeroStake);
+
+    // Gate 2: the betting cutoff. Closes the late-stake exploit (staking after the
+    // outcome is knowable — SETTLEMENT-ENGINE.md risk table, arXiv:2606.31675).
+    //
+    // LEGACY SEMANTICS: `lock_ts == 0` means NO cutoff. Markets created before this
+    // field existed decode `lock_ts = 0` from their zeroed reserved tail, so this
+    // gate is a no-op for them and their behavior is byte-for-byte unchanged. A
+    // market that opts out of a cutoff also sets 0 — identical, and intentional.
+    let market = &ctx.accounts.market;
+    if market.lock_ts != 0 {
+        let now = Clock::get()?.unix_timestamp;
+        require!(now < market.lock_ts, SettlementError::MarketLocked);
+    }
 
     // Move the stake into the vault (staker signs normally).
     transfer(

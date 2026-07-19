@@ -63,8 +63,18 @@ pub struct Market {
     /// flip the outcome (F1). Drawn from the reserved tail so the account byte-size is
     /// UNCHANGED (no realloc; existing markets stay decodable). `ScoreStat.period` is i32.
     pub period: i32, // 4  (taken from _reserved: 32 → 28)
+    /// Betting cutoff: a Unix timestamp after which `stake` is refused (closes the
+    /// late-stake exploit — staking after the outcome is knowable). Drawn from the
+    /// reserved tail exactly like `period` above, so the account byte-size stays
+    /// UNCHANGED (no realloc; every existing market decodes with `lock_ts = 0`).
+    ///
+    /// **Legacy semantics — `lock_ts == 0` means NO cutoff.** Markets created before
+    /// this field existed decode their zeroed reserved bytes as `lock_ts = 0`, and the
+    /// stake gate treats 0 as "no cutoff" so their behavior is byte-for-byte unchanged.
+    /// `reclaim` likewise has no timeout window for a `lock_ts == 0` market (see reclaim.rs).
+    pub lock_ts: i64, // 8  (taken from _reserved: 28 → 20)
     /// Future use (no realloc churn).
-    pub _reserved: [u8; 28], // 28
+    pub _reserved: [u8; 20], // 20
 }
 
 /// `Position` — one staker's stake on one market. Pro-rata claim reads this.

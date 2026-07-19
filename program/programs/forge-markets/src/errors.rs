@@ -21,9 +21,10 @@ pub enum SettlementError {
     #[msg("Position payout already claimed")]
     AlreadyClaimed,
 
-    // If the winning side has zero stake, every claim fails with this error and
-    // the pot is STRANDED in the vault — v1 has no reclaim/refund instruction
-    // for the losing side (one is spec'd; see claim.rs).
+    // If the winning side has zero stake, every claim fails with this error and the
+    // pot is STRANDED in the vault. NOTE: `reclaim` (the timeout refund, #36) does
+    // NOT reach this case — it only refunds a still-`Open` market, and this strand
+    // is a *Settled* terminal state. That boundary is deliberate; see reclaim.rs.
     #[msg("The winning side has zero total stake — nothing to claim")]
     NoWinningStake,
 
@@ -64,4 +65,17 @@ pub enum SettlementError {
     // so a caller cannot redirect the resolve CPI to a look-alike engine. ──
     #[msg("Supplied settlement engine account does not match the expected program id")]
     WrongEngineProgram,
+
+    // ── appended: lock_ts betting cutoff (#36). Never reorder — code = 6000 + index. ──
+    // `stake` after the market's `lock_ts` (when lock_ts != 0) is the late-stake
+    // exploit; refuse it. lock_ts == 0 = legacy no-cutoff, never trips this.
+    #[msg("Market betting is locked — the cutoff (lock_ts) has passed")]
+    MarketLocked,
+
+    // ── appended: reclaim timeout refund (#36) ──
+    #[msg("Reclaim is not yet available — the timeout (lock_ts + RECLAIM_DELAY) has not elapsed")]
+    ReclaimTooEarly,
+
+    #[msg("Reclaim is unavailable: this market has no betting cutoff (lock_ts == 0), so no timeout window is defined")]
+    ReclaimUnavailable,
 }

@@ -147,7 +147,10 @@ pub struct MarketView {
     pub vault_bump: u8,
     pub schema_version: u8,
     pub period: i32,
-    pub _reserved: [u8; 28],
+    /// Betting cutoff (Unix seconds); 0 = no cutoff / legacy. Taken from the reserved
+    /// tail (28 → 20) so the account byte-size is UNCHANGED — mirror of state.rs.
+    pub lock_ts: i64,
+    pub _reserved: [u8; 20],
 }
 
 /// Decoded `Position`.
@@ -325,12 +328,15 @@ pub fn data_create_market(
     stat_key: u32,
     predicate: &TraderPredicate,
     period: i32,
+    lock_ts: i64,
 ) -> Vec<u8> {
     let mut d = ix_disc("create_market").to_vec();
     d.extend_from_slice(&borsh::to_vec(&fixture_id).unwrap());
     d.extend_from_slice(&borsh::to_vec(&stat_key).unwrap());
     d.extend_from_slice(&borsh::to_vec(predicate).unwrap());
     d.extend_from_slice(&borsh::to_vec(&period).unwrap());
+    // lock_ts appended AFTER period (mirrors the program arg order). 0 = no cutoff.
+    d.extend_from_slice(&borsh::to_vec(&lock_ts).unwrap());
     d
 }
 
@@ -366,6 +372,10 @@ pub fn data_claim() -> Vec<u8> {
     ix_disc("claim").to_vec()
 }
 
+pub fn data_reclaim() -> Vec<u8> {
+    ix_disc("reclaim").to_vec()
+}
+
 // ============================ instruction builders ============================
 // Account order MUST match each #[derive(Accounts)] field order.
 
@@ -375,6 +385,7 @@ pub fn ix_create_market(
     stat_key: u32,
     predicate: &TraderPredicate,
     period: i32,
+    lock_ts: i64,
 ) -> Instruction {
     let (market, _) = market_pda(fixture_id, stat_key);
     let (vault, _) = vault_pda(&market);
@@ -386,7 +397,7 @@ pub fn ix_create_market(
             AccountMeta::new(*authority, true),
             AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
         ],
-        data: data_create_market(fixture_id, stat_key, predicate, period),
+        data: data_create_market(fixture_id, stat_key, predicate, period, lock_ts),
     }
 }
 
@@ -454,6 +465,25 @@ pub fn ix_claim(market: &Pubkey, staker: &Pubkey) -> Instruction {
             AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
         ],
         data: data_claim(),
+    }
+}
+
+/// Reclaim accounts mirror `Reclaim<'info>` (top-to-bottom): market (w), position
+/// (w), vault (w), staker (signer, w), system. Market is WRITABLE here (unlike
+/// claim) — reclaim decrements the side's stake.
+pub fn ix_reclaim(market: &Pubkey, staker: &Pubkey) -> Instruction {
+    let (vault, _) = vault_pda(market);
+    let (position, _) = position_pda(market, staker);
+    Instruction {
+        program_id: SETTLEMENT_ID,
+        accounts: vec![
+            AccountMeta::new(*market, false),
+            AccountMeta::new(position, false),
+            AccountMeta::new(vault, false),
+            AccountMeta::new(*staker, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: data_reclaim(),
     }
 }
 

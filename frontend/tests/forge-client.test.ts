@@ -155,6 +155,7 @@ describe("buildCreateMarketIx — first-call-correct wire format", () => {
     threshold: 0,
     comparison: Comparison.GreaterThan,
     period: 0,
+    lockTs: 0n, // no betting cutoff — keeps the live-verified address/bytes intact
     authority: STAKER,
   });
 
@@ -173,12 +174,12 @@ describe("buildCreateMarketIx — first-call-correct wire format", () => {
     expect(vault.toBase58()).toBe(expectedVault.toBase58());
   });
 
-  it("encodes the exact byte layout: disc + i64 fixture + u32 stat + i32 threshold + u8 cmp + i32 period", () => {
-    // disc(create_market) · 18257739 LE i64 · 1 LE u32 · 0 i32 · 0 u8 · 0 i32
+  it("encodes the exact byte layout: disc + i64 fixture + u32 stat + i32 threshold + u8 cmp + i32 period + i64 lockTs", () => {
+    // disc(create_market) · 18257739 LE i64 · 1 LE u32 · 0 i32 · 0 u8 · 0 i32 · 0 i64 lockTs
     expect(Buffer.from(instruction.data).toString("hex")).toBe(
-      "67e261ebc8bcfbfe4b9716010000000001000000000000000000000000",
+      "67e261ebc8bcfbfe4b97160100000000010000000000000000000000000000000000000000",
     );
-    expect(instruction.data.length).toBe(8 + 8 + 4 + 4 + 1 + 4);
+    expect(instruction.data.length).toBe(8 + 8 + 4 + 4 + 1 + 4 + 8);
   });
 
   it("has the correct account order + signer/writable flags", () => {
@@ -195,13 +196,14 @@ describe("buildCreateMarketIx — first-call-correct wire format", () => {
     expect(keys[3].isWritable).toBe(false);
   });
 
-  it("encodes a non-default predicate/period faithfully", () => {
+  it("encodes a non-default predicate/period/lockTs faithfully", () => {
     const { instruction: ix } = buildCreateMarketIx({
       fixtureId: -1n, // i64 sign handling
       statKey: 2,
       threshold: 3,
       comparison: Comparison.LessThan,
       period: 1,
+      lockTs: 1_700_000_000n,
       authority: STAKER,
     });
     const data = Uint8Array.from(ix.data);
@@ -211,6 +213,9 @@ describe("buildCreateMarketIx — first-call-correct wire format", () => {
     expect(view.getInt32(20, true)).toBe(3);
     expect(data[24]).toBe(Comparison.LessThan);
     expect(view.getInt32(25, true)).toBe(1);
+    // lockTs is the i64 immediately after period (offset 8+8+4+4+1+4 = 29).
+    expect(view.getBigInt64(29, true)).toBe(1_700_000_000n);
+    expect(data.length).toBe(8 + 8 + 4 + 4 + 1 + 4 + 8);
   });
 });
 

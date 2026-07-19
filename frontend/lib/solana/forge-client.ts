@@ -64,6 +64,10 @@ export const SETTLEMENT_ERRORS: Record<number, string> = {
   6012: "StatMismatch",
   6013: "MultiStatNotAllowed",
   6014: "PeriodMismatch",
+  6015: "WrongEngineProgram",
+  6016: "MarketLocked",
+  6017: "ReclaimTooEarly",
+  6018: "ReclaimUnavailable",
 };
 
 export function toLamports(sol: number): bigint {
@@ -233,7 +237,9 @@ export function buildStakeIx(params: {
  * The vault is NOT created here (it's a system-owned PDA that first receives
  * lamports on stake), so it is read-only — Anchor only validates the derivation.
  * data = disc("create_market") + i64(fixture) + u32(stat) + i32(threshold)
- *      + u8(comparison) + i32(period), mirroring backend `build_create_market_ix`.
+ *      + u8(comparison) + i32(period) + i64(lockTs), mirroring backend
+ *      `build_create_market_ix`. `lockTs` is the betting cutoff (Unix seconds);
+ *      pass 0n for no cutoff — see program stake.rs / create_market.rs (#36).
  */
 export function buildCreateMarketIx(params: {
   fixtureId: bigint;
@@ -241,9 +247,10 @@ export function buildCreateMarketIx(params: {
   threshold: number;
   comparison: Comparison;
   period: number;
+  lockTs: bigint;
   authority: PublicKey;
 }): { instruction: TransactionInstruction; market: PublicKey; vault: PublicKey } {
-  const { fixtureId, statKey, threshold, comparison, period, authority } = params;
+  const { fixtureId, statKey, threshold, comparison, period, lockTs, authority } = params;
   const [market] = marketPda(fixtureId, statKey);
   const [vault] = vaultPda(market);
 
@@ -254,6 +261,7 @@ export function buildCreateMarketIx(params: {
     .i32(threshold)
     .u8(comparison)
     .i32(period)
+    .i64(lockTs)
     .build();
 
   const instruction = new TransactionInstruction({

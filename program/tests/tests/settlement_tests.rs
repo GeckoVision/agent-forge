@@ -107,12 +107,16 @@ fn setup_open_market(stake_yes: u64, stake_no: u64) -> (Env, Pubkey, Pubkey, Pub
 
     let (market, _) = market_pda(FIXTURE_ID, STAT_KEY);
 
+    // lock_ts = 0 (legacy no-cutoff): the existing suite is time-independent, so
+    // this keeps every one of these 11 tests byte-for-byte unchanged. The lock_ts /
+    // reclaim tests below open their OWN markets with a real cutoff.
     let res = env.process(&ix_create_market(
         &authority,
         FIXTURE_ID,
         STAT_KEY,
         &predicate(),
         PERIOD,
+        0,
     ));
     assert!(
         res.program_result.is_ok(),
@@ -470,4 +474,279 @@ fn settle_rejects_period_mismatch() {
     );
     let m = decode_market(&env.get(&market).data).expect("market decodes");
     assert_eq!(m.state, MarketState::Open, "market must stay Open");
+}
+
+// ── #36 lock_ts betting cutoff ─────────────────────────────────────────────────
+// Closes the late-stake exploit (SETTLEMENT-ENGINE.md risk table): stakes must be
+// refused once the market's `lock_ts` has passed. `lock_ts == 0` is the legacy /
+// opt-out "no cutoff" value and must behave exactly as the pre-cutoff program did.
+// The Mollusk clock is driven via `env.mollusk.sysvars.clock.unix_timestamp`.
+
+/// A wall-clock reference used by the time-sensitive cases (Mollusk's default
+/// Clock has unix_timestamp = 0).
+const NOW: i64 = 1_700_000_000;
+/// Mirror of `reclaim::RECLAIM_DELAY` (7 days) — the test crate depends on no
+/// program crates, so the constant is duplicated as DATA (like the seeds).
+const RECLAIM_DELAY: i64 = 7 * 24 * 60 * 60;
+
+/// create-only (no stakes) with an explicit `lock_ts`; returns (env, market, staker).
+fn setup_created_market(lock_ts: i64) -> (Env, Pubkey, Pubkey) {
+    let mut env = Env::new();
+    let authority = Pubkey::new_unique();
+    let staker = Pubkey::new_unique();
+    env.set(authority, funded(100 * SOL));
+    env.set(staker, funded(100 * SOL));
+    let (market, _) = market_pda(FIXTURE_ID, STAT_KEY);
+    let res = env.process(&ix_create_market(
+        &authority,
+        FIXTURE_ID,
+        STAT_KEY,
+        &predicate(),
+        PERIOD,
+        lock_ts,
+    ));
+    assert!(
+        res.program_result.is_ok(),
+        "create_market failed: {:?}",
+        res.program_result
+    );
+    (env, market, staker)
+}
+
+#[test]
+fn create_market_stores_lock_ts_without_growing_the_account() {
+    let lock_ts = NOW + 1234;
+    let (env, market, _) = setup_created_market(lock_ts);
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.lock_ts, lock_ts, "lock_ts stored from the create arg");
+    assert_eq!(m.period, PERIOD, "period still stored (unchanged)");
+    // The whole point of drawing lock_ts from `_reserved`: the account byte-size is
+    // UNCHANGED (8 disc + 134 body = 142), so existing markets stay decodable.
+    assert_eq!(
+        env.get(&market).data.len(),
+        142,
+        "Market account byte-size must be UNCHANGED (no realloc)"
+    );
+}
+
+#[test]
+fn stake_before_lock_is_accepted() {
+    let lock_ts = NOW + 1_000;
+    let (mut env, market, staker) = setup_created_market(lock_ts);
+    env.mollusk.sysvars.clock.unix_timestamp = NOW; // strictly before the cutoff
+    let res = env.process(&ix_stake(&market, &staker, Side::Yes, 2 * SOL));
+    assert!(
+        res.program_result.is_ok(),
+        "stake before lock_ts must succeed: {:?}",
+        res.program_result
+    );
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.stake_yes, 2 * SOL);
+}
+
+#[test]
+fn stake_at_or_after_lock_is_rejected() {
+    let lock_ts = NOW;
+    let (mut env, market, staker) = setup_created_market(lock_ts);
+
+    // AT the cutoff (now == lock_ts): the gate is `now < lock_ts`, so this is closed.
+    env.mollusk.sysvars.clock.unix_timestamp = NOW;
+    let res = env.process(&ix_stake(&market, &staker, Side::Yes, 2 * SOL));
+    assert!(
+        res.program_result.is_err(),
+        "stake AT lock_ts must be rejected (MarketLocked): {:?}",
+        res.program_result
+    );
+
+    // AFTER the cutoff (same market/staker — the reverted stake created nothing).
+    env.mollusk.sysvars.clock.unix_timestamp = NOW + 10_000;
+    let res = env.process(&ix_stake(&market, &staker, Side::Yes, 2 * SOL));
+    assert!(
+        res.program_result.is_err(),
+        "stake AFTER lock_ts must be rejected (MarketLocked): {:?}",
+        res.program_result
+    );
+
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.stake_yes, 0, "no stake was recorded");
+    assert_eq!(m.state, MarketState::Open, "market stays Open (revert)");
+}
+
+#[test]
+fn legacy_zero_lock_ts_has_no_cutoff() {
+    // A market with lock_ts == 0 (legacy / opt-out) stays open regardless of the
+    // clock — the exact pre-cutoff behavior, so existing on-chain markets are
+    // unaffected by the new gate.
+    let (mut env, market, staker) = setup_created_market(0);
+    env.mollusk.sysvars.clock.unix_timestamp = NOW + 10_000_000; // far future
+    let res = env.process(&ix_stake(&market, &staker, Side::No, 5 * SOL));
+    assert!(
+        res.program_result.is_ok(),
+        "lock_ts == 0 market must stay open regardless of clock: {:?}",
+        res.program_result
+    );
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.stake_no, 5 * SOL);
+}
+
+// ── #36 reclaim timeout refund ─────────────────────────────────────────────────
+// Closes the stranded-stake hole: an unsettleable (no-oracle-root-ever) market
+// would otherwise trap the pot forever. A staker can pull back their OWN stake once
+// the market is still Open AND `now >= lock_ts + RECLAIM_DELAY`.
+
+/// create + both stakes (placed before the cutoff) with a real `lock_ts`; returns
+/// (env, market, staker_yes, staker_no). The clock is left at `lock_ts - 1`.
+fn setup_locked_market_with_stakes(
+    lock_ts: i64,
+    stake_yes: u64,
+    stake_no: u64,
+) -> (Env, Pubkey, Pubkey, Pubkey) {
+    let mut env = Env::new();
+    let authority = Pubkey::new_unique();
+    let staker_y = Pubkey::new_unique();
+    let staker_n = Pubkey::new_unique();
+    env.set(authority, funded(100 * SOL));
+    env.set(staker_y, funded(100 * SOL));
+    env.set(staker_n, funded(100 * SOL));
+    let (market, _) = market_pda(FIXTURE_ID, STAT_KEY);
+    let res = env.process(&ix_create_market(
+        &authority,
+        FIXTURE_ID,
+        STAT_KEY,
+        &predicate(),
+        PERIOD,
+        lock_ts,
+    ));
+    assert!(res.program_result.is_ok(), "create: {:?}", res.program_result);
+
+    // Stake BEFORE the cutoff. For lock_ts == 0 (legacy) the gate is a no-op, so
+    // clock = lock_ts - 1 (= -1) is still fine.
+    env.mollusk.sysvars.clock.unix_timestamp = lock_ts - 1;
+    let res = env.process(&ix_stake(&market, &staker_y, Side::Yes, stake_yes));
+    assert!(res.program_result.is_ok(), "stake YES: {:?}", res.program_result);
+    let res = env.process(&ix_stake(&market, &staker_n, Side::No, stake_no));
+    assert!(res.program_result.is_ok(), "stake NO: {:?}", res.program_result);
+    (env, market, staker_y, staker_n)
+}
+
+#[test]
+fn reclaim_before_delay_is_rejected() {
+    let lock_ts = NOW;
+    let (mut env, market, staker_y, _) = setup_locked_market_with_stakes(lock_ts, 3 * SOL, 1 * SOL);
+    // One second before the timeout window opens.
+    env.mollusk.sysvars.clock.unix_timestamp = lock_ts + RECLAIM_DELAY - 1;
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(
+        res.program_result.is_err(),
+        "reclaim before lock_ts + RECLAIM_DELAY must be rejected (ReclaimTooEarly): {:?}",
+        res.program_result
+    );
+    // Funds untouched, position not marked.
+    let (vault, _) = vault_pda(&market);
+    assert_eq!(env.get(&vault).lamports, 4 * SOL, "vault intact");
+    let py = decode_position(&env.get(&position_pda(&market, &staker_y).0).data).unwrap();
+    assert!(!py.claimed, "position not reclaimed");
+}
+
+#[test]
+fn reclaim_after_delay_on_open_market_refunds_exactly() {
+    let lock_ts = NOW;
+    let (mut env, market, staker_y, _) = setup_locked_market_with_stakes(lock_ts, 3 * SOL, 1 * SOL);
+    let (vault, _) = vault_pda(&market);
+    let staker_before = env.get(&staker_y).lamports;
+
+    // Exactly at the timeout boundary (now == lock_ts + RECLAIM_DELAY).
+    env.mollusk.sysvars.clock.unix_timestamp = lock_ts + RECLAIM_DELAY;
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(
+        res.program_result.is_ok(),
+        "reclaim at the timeout on an Open market must succeed: {:?}",
+        res.program_result
+    );
+
+    // EXACTLY the staker's stake refunded; the NO side's 1 SOL stays in the vault.
+    assert_eq!(
+        env.get(&vault).lamports,
+        1 * SOL,
+        "only staker_y's 3 SOL left the vault"
+    );
+    assert_eq!(
+        env.get(&staker_y).lamports,
+        staker_before + 3 * SOL,
+        "refund is exactly the staker's stake"
+    );
+    let py = decode_position(&env.get(&position_pda(&market, &staker_y).0).data).unwrap();
+    assert!(py.claimed, "position marked reclaimed (double-reclaim guard)");
+    // Stake decremented so pot == vault still holds for any remaining position.
+    let m = decode_market(&env.get(&market).data).expect("market decodes");
+    assert_eq!(m.stake_yes, 0, "reclaimed side's stake removed");
+    assert_eq!(m.stake_no, 1 * SOL, "the other side is untouched");
+    assert_eq!(m.state, MarketState::Open, "still Open (reclaim does not settle)");
+}
+
+#[test]
+fn double_reclaim_is_rejected() {
+    let lock_ts = NOW;
+    let (mut env, market, staker_y, _) = setup_locked_market_with_stakes(lock_ts, 3 * SOL, 1 * SOL);
+    env.mollusk.sysvars.clock.unix_timestamp = lock_ts + RECLAIM_DELAY;
+
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(res.program_result.is_ok(), "first reclaim: {:?}", res.program_result);
+    let vault_after_first = env.get(&vault_pda(&market).0).lamports;
+
+    // A second reclaim of the same position must fail (AlreadyClaimed) — no double refund.
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(
+        res.program_result.is_err(),
+        "second reclaim must be rejected (AlreadyClaimed): {:?}",
+        res.program_result
+    );
+    assert_eq!(
+        env.get(&vault_pda(&market).0).lamports,
+        vault_after_first,
+        "no second refund left the vault"
+    );
+}
+
+#[test]
+fn reclaim_on_settled_market_is_rejected() {
+    // Settle the market first, then attempt reclaim — a Settled market pays via
+    // claim, so reclaim (Open-gated) must refuse it. This is the honest boundary:
+    // reclaim never touches a settled terminal state.
+    let lock_ts = NOW;
+    let (mut env, market, staker_y, _) = setup_locked_market_with_stakes(lock_ts, 3 * SOL, 1 * SOL);
+    let (roots_key, _) = (Pubkey::new_unique(), 0u8);
+    env.set(roots_key, daily_roots_account(&true_root()));
+
+    let (ts, summary, fp, mp, stat_a, stat_b, op) = settle_args(true_root());
+    let res = env.process(&ix_settle(
+        &market, &roots_key, &TXORACLE_ID, ts, &summary, &fp, &mp, &stat_a, &stat_b, &op,
+    ));
+    assert!(res.program_result.is_ok(), "settle: {:?}", res.program_result);
+
+    // Even long past the reclaim timeout, a Settled market refuses reclaim.
+    env.mollusk.sysvars.clock.unix_timestamp = lock_ts + RECLAIM_DELAY + 1;
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(
+        res.program_result.is_err(),
+        "reclaim on a Settled market must be rejected (MarketNotOpen): {:?}",
+        res.program_result
+    );
+}
+
+#[test]
+fn reclaim_unavailable_on_legacy_zero_lock_market() {
+    // A legacy / opt-out market (lock_ts == 0) has NO timeout reference, so it has
+    // NO reclaim window — even far in the future. Without this guard, 0 + DELAY (~1970)
+    // would make every legacy market instantly reclaimable (a live-market footgun).
+    let (mut env, market, staker_y, _) = setup_locked_market_with_stakes(0, 3 * SOL, 1 * SOL);
+    env.mollusk.sysvars.clock.unix_timestamp = NOW + 10_000_000;
+    let res = env.process(&ix_reclaim(&market, &staker_y));
+    assert!(
+        res.program_result.is_err(),
+        "reclaim on a lock_ts == 0 market must be rejected (ReclaimUnavailable): {:?}",
+        res.program_result
+    );
+    // Funds untouched.
+    assert_eq!(env.get(&vault_pda(&market).0).lamports, 4 * SOL, "vault intact");
 }

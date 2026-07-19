@@ -1,8 +1,8 @@
-//! `create_market(fixture_id, stat_key, predicate, period)` — open a two-sided
-//! escrow over one fixture stat. Stores the YES predicate that txoracle will
-//! later evaluate and the stat `period` the settle proof must match (the F1
-//! binding — see settle.rs); derives + records the SOL vault PDA (funded lazily
-//! by the first stake).
+//! `create_market(fixture_id, stat_key, predicate, period, lock_ts)` — open a
+//! two-sided escrow over one fixture stat. Stores the YES predicate that txoracle
+//! will later evaluate, the stat `period` the settle proof must match (the F1
+//! binding — see settle.rs), and the `lock_ts` betting cutoff (0 = no cutoff; see
+//! stake.rs); derives + records the SOL vault PDA (funded lazily by the first stake).
 
 use anchor_lang::prelude::*;
 
@@ -43,6 +43,7 @@ pub fn create_market_handler(
     stat_key: u32,
     predicate: TraderPredicate,
     period: i32,
+    lock_ts: i64,
 ) -> Result<()> {
     let market = &mut ctx.accounts.market;
     market.fixture_id = fixture_id;
@@ -58,7 +59,10 @@ pub fn create_market_handler(
     market.vault_bump = ctx.bumps.vault;
     market.schema_version = SCHEMA_VERSION;
     market.period = period; // bound at settle (F1); see settle.rs / state.rs
-    market._reserved = [0u8; 28];
+    // Betting cutoff. `0` = no cutoff (the caller opts out; also the legacy default
+    // for markets created before this field existed). See stake.rs / state.rs.
+    market.lock_ts = lock_ts;
+    market._reserved = [0u8; 20];
 
     emit!(MarketCreated {
         market: market.key(),

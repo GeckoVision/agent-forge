@@ -11,11 +11,15 @@
 //! whole guarantee.
 //!
 //! ── Instructions ─────────────────────────────────────────────────────────────
-//!   create_market(fixture_id, stat_key, predicate, period) — open a two-sided
-//!                                                    escrow bound to one stat period
-//!   stake(side, amount)                            — back YES/NO with SOL
+//!   create_market(fixture_id, stat_key, predicate, period, lock_ts) — open a
+//!                                    two-sided escrow bound to one stat period,
+//!                                    with an optional betting cutoff (lock_ts)
+//!   stake(side, amount)                            — back YES/NO with SOL (refused
+//!                                                    once lock_ts has passed)
 //!   settle(ts, summary, proofs.., stat_a, ..)      — CPI validate_stat → outcome
 //!   claim()                                        — winning side withdraws pro-rata
+//!   reclaim()                                      — timeout refund of an OWN stake
+//!                                    on an unsettleable (still-Open) market
 //!
 //! Both YES and NO settle through this single `settle`: the oracle returns
 //! `Ok(true|false)` and the program records the winner from that bool (a false
@@ -75,15 +79,17 @@ pub mod forge_markets {
 
     /// Open a two-sided market over `(fixture_id, stat_key, period)` with a YES
     /// predicate. `period` binds the stat phase the oracle proof must match at settle.
+    /// `lock_ts` is the betting cutoff (Unix seconds); pass `0` for no cutoff.
     pub fn create_market(
         ctx: Context<CreateMarket>,
         fixture_id: i64,
         stat_key: u32,
         predicate: TraderPredicate,
         period: i32,
+        lock_ts: i64,
     ) -> Result<()> {
         instructions::create_market::create_market_handler(
-            ctx, fixture_id, stat_key, predicate, period,
+            ctx, fixture_id, stat_key, predicate, period, lock_ts,
         )
     }
 
@@ -119,5 +125,11 @@ pub mod forge_markets {
     /// Withdraw a winning position's pro-rata share of the pot.
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
         instructions::claim::claim_handler(ctx)
+    }
+
+    /// Reclaim an OWN stake from a still-Open market once its betting cutoff plus
+    /// `RECLAIM_DELAY` has elapsed — the timeout refund for an unsettleable market.
+    pub fn reclaim(ctx: Context<Reclaim>) -> Result<()> {
+        instructions::reclaim::reclaim_handler(ctx)
     }
 }

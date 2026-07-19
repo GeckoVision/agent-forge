@@ -127,7 +127,8 @@ def test_position_and_vault_pdas_are_deterministic():
 def test_create_market_ix_accounts_and_data():
     authority = Pubkey.from_string("3gtfwhBtFKB4k9M7vjcZ9qCAW6HwP4Y2WLJiJbimBbrj")
     pred = TraderPredicate(threshold=0, comparison=Comparison.GREATER_THAN)
-    ix = build_create_market_ix(FIXTURE_ID, STAT_KEY, pred, PERIOD, authority)
+    lock_ts = 1_700_000_000  # betting cutoff (Unix seconds) — appended after period
+    ix = build_create_market_ix(FIXTURE_ID, STAT_KEY, pred, PERIOD, lock_ts, authority)
 
     assert ix.program_id == FORGE_PROGRAM_ID
     market, _ = market_pda(FIXTURE_ID, STAT_KEY)
@@ -148,6 +149,7 @@ def test_create_market_ix_accounts_and_data():
     assert r.i32() == 0  # threshold
     assert r.u8() == int(Comparison.GREATER_THAN)
     assert r.i32() == PERIOD  # period — bound at settle (F1)
+    assert r.i64() == lock_ts  # lock_ts — the betting cutoff (#36), after period
     assert r.o == len(ix.data)  # nothing extra
 
 
@@ -267,7 +269,7 @@ def test_honest_create_binds_the_settle_proof_period():
     assert period == PROOF["statToProve"]["period"] == 4
     # the create-market ix must carry exactly this period (byte 8+8+4+4+1 .. +4)...
     pred = winning_predicate(PROOF)
-    ix = build_create_market_ix(FIXTURE_ID, STAT_KEY, pred, period, Pubkey.default())
+    ix = build_create_market_ix(FIXTURE_ID, STAT_KEY, pred, period, 0, Pubkey.default())
     r = _Reader(ix.data)
     r.take(8), r.i64(), r.u32(), r.i32(), r.u8()  # skip disc, fixture, stat, threshold, comparison
     assert r.i32() == period

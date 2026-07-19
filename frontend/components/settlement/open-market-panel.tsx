@@ -147,6 +147,9 @@ export function OpenMarketPanel({
         threshold: OPEN_MARKET_PREDICATE.threshold,
         comparison: OPEN_MARKET_PREDICATE.comparison,
         period: OPEN_MARKET_PERIOD,
+        // lockTs 0n = no betting cutoff (unchanged UX). Wiring a real kickoff-derived
+        // cutoff here is a follow-up product decision — the on-chain gate (#36) is ready.
+        lockTs: 0n,
         authority: publicKey,
       });
     } catch {
