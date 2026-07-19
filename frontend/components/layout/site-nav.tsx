@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/agent", label: "Agent" },
   { href: "/settlement", label: "Settlement" },
   { href: "/track-record", label: "Track record" },
+  { href: "/build", label: "Build" },
 ];
 
 export function SiteNav() {
