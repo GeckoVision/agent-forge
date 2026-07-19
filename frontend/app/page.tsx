@@ -6,6 +6,7 @@ import { PosterHero } from "@/components/hero/poster-hero";
 import { ProofSection } from "@/components/home/proof-section";
 import { ProblemSection } from "@/components/home/problem-section";
 import { HowItWorks } from "@/components/home/how-it-works";
+import { OneEngineSection } from "@/components/home/one-engine-section";
 
 const FEATURES = [
   {
@@ -54,6 +55,9 @@ export default function HomePage() {
 
       {/* ── How it works (3 steps + the real pipeline) ───────────────────── */}
       <HowItWorks />
+
+      {/* ── One engine, two products (reusability proof — dark poster band) ─ */}
+      <OneEngineSection />
 
       {/* ── Why it holds up (feature cards) ──────────────────────────────── */}
       <section className="border-t border-border">
