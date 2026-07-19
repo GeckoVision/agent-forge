@@ -1,0 +1,98 @@
+[
+ {
+  "fixtureId": 17588235,
+  "statKey": 1,
+  "market": "96Lg43HGGYbhE9b4p27Cowv2jPNW2qm4n8QksiY55KKz",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/3wxaZ8NiYD6SK5ZGYF3eJW41dSkdKm9C3gjBcEgKankXckQ7xRnRgvRy3SsfEBqk4Pqn6p6VVRbfsjR5cYyAD7xA?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/3f1PsaeJCQXm6HtwHMQNxbxuTHDCHE8mEattJygKS2xLTc5iJQWeuXGRx4gwoHWWRpXebEL2biMrWjiraWmQsWZy?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/2ZJfvxKCA7Vp8a4DWHoSA1auRzjC4S5p1MYqf81qedfcDPLcbpqUhaD4kofmyWNiKTH5qYezJq9z4FBBj7BsvJVj?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/GprYXh2mzUjHVNAcNbCJhtqVFmWgSxh6XuFr2R3CJgPBDB2AGZ4Wro4C6XpxP4yj4Vu1DgHqrhchg1ZAHBjXoiv?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/5J32WwQkKDk3YH81NcAyHfDLMHCi736VWGVGDAf9WuaThuPzGyQfrVmHwnTw57zM2gZKjCGjV4xJYjrjMsFUrm6W?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 17588235,
+  "statKey": 2,
+  "market": "CbdJmzjAr1ucpnS6QuTEpV2KoyxmQP5uUZ2xZ47YvMcL",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/3XA1gYHTwEXvSdLVyDkY3YCAP33KvCZS1fU7oMhHFvtfe4D9JzDnXM7ciXQcMwAHHNTX4nsP83kk8iufaF6tN7Re?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/4B89q3CuhoYrpHAENz1tLnGZTDqU3HRSjJxixt9n3Gddk4nC1kNHbwxjj6buUGgmvr39K1porAQkyGh49DrwwpcG?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/2dVyKxaYKPaGT8retvda8rvXnYfPNEaWoibo4zsJiHrbQKs7jt1HHQbSis8JB32BgbvN2F1ezxkySdVKtFUPcN6u?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/4FE9nYjH8QRK58NKFbmhiNpMBwpQGYJhCDVpYm6F6tqcNcuUyJCcKyvEFWijREvJGsVNUWacVFG7UnEfhNRpk1r4?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/2sT529RU1n7AEhPWFMGEUZgyeZAT615QqJXKeiPsRZ1fp5H4x1UAtgTfJ78gGKswQaLfAkjxkQWe4KJyowziwTw8?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 17926603,
+  "statKey": 1,
+  "market": "RmhAZnwe9sXtfD8rmDHwN75CYwNTUMvq8su3Tfv5Epo",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/4CBvjsfA4BiSDq4gcTEUhdjRkHKNFPQy1t9LL2dCYTVPuKrchJDqgwBbUcqmpNrALcEjPJphvAYSt8uv1jx1eAK4?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/3o87d7ZrRVYWrBnjvrGtKad92K8YFQoMReZ95ztYoFwxPAR6CPJ4Zcv4sRswSSSN2FY9PnRLDJHmS37CtofBV4ye?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/4n88HwTX1FmiBo2fRAWUQoCnWBfhxo6NPXscP4W3mDuvDbFchkKxk6iEoS2cBAA7Y57NdwtNHGAKrEQ5rQxzMvKt?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/5MJ4c26g9VSNnuWT8mHLeJdCUNj9DoLMRNBYXudgTH4kkS7fv3SUvzfpAzYCFupyH1HGrsg62MLGq7nisfedCPwN?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/22zK8As1fB7JJgS4oWEhkrqAcH19vtCHGnytMkjBLdfHGYgsoPy6uiRBSzLmTDMABXrJvp91vP9QseBsdSmezHg2?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 17926603,
+  "statKey": 2,
+  "market": "66zSMg2q9cJZrqFSL92tpaJFpSTvfTdgZ7CT6Mt1QTC5",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/4TTQHsDmJWf829c2ub8Sq1pWeDbB8rakQJgFBWYY242r177nyym3KiVeSqotnVTNQr1foPxVybRQQkYv65VnYQEp?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/32fsdj9QtBjAFdKKSZNttC4eh6PV5aSgkfm7R1bdhtRsRHxbx77J1RqzAWGYuJhBHcRS1Vb1SHU2sCQnN6HMVEfq?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/4aGPVAecCdLZhWJyZNiZmfgTsxgxouxfis898Z5TNNaXQs2AxruvqsFavoxTcafxLJHcQP3CpDbxQewHyyEqsTR1?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/PXzFDngiiyCguRjAAEMFr8SbR83rHgpGmYTM4bPQXXdsg4qwBxUR2gMwGzWkU2mhodKkzWXLTCqwaErbwjrF8YC?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/3zZg43jyk4rmRdmu7FAmFpdj6WJagxctqkXJ5thWEWgrh1wZNoQEsMZbkETH6KewJv7mwc3rvj3aTccoDZNXwEpS?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 17588236,
+  "statKey": 1,
+  "market": "J5AqQeoTrswKVXxnCYVMewsMnbtNYkGaSjgHpjZ5hvxU",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/3aTLx7WxtfRGneAP3XVgNPFaK9D9AYKM891jFcV57LSwhUYZ8nzdffhiYrWTQFwsiPVpvZXPtJMiaw2ew33nswqx?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/QdETpuFRLS4zMJEAFcmaTT91feRau7Gd4Go2oPe89fWypDVmnRVb7T5MbgWo7MKSgGWWZsCHbuX7fNFKy6uwDRS?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/4K1hhcEqTHpieKsb6hyxvWkT8FXrGBbeJWJWx4AhHXKLCQp1x5edt5QtBEqENcrP3k3canXrRYEDciuFi5oEq3KR?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/vsuiDZDRMgq6532bzUd6k6LhsBn96hKyH5ezDiXpBw3TsSfKSFMAWht52Qav79s4wZJb3qmkrJPdVoju1xXE46w?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/2mxW6dyqMgnNwwtEvXPEkwAESF7CwCqS2EWTF1d3HcgXvpsSYn8RQn3s2FqL9SmmhZ1bmwoBwChMQjNkov3ZarLf?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 17588236,
+  "statKey": 2,
+  "market": "kc6fn9aX1ogpS98yyAoG3YUmSEjpED2f19ykJQr9Kso",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/3waWC84QxBTVrjAwQCzA6JwTNj5rT8rnAAgv5Tp4DsAMBVuqF4DQtK9v79o8eGhsy2MQEknaQv6V6WQomyWswH5t?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/3TzTKxCp2UJuc1Qyy8sE9XWnhZfDp1mV8GizkKPdMUySkyJoQ3dc3dTnSyz2EAQfZDrL315Dd4NeQj95rYAPwaCs?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/vBcUoptyBCjsTsMEEUNREeVUDG2E3NhciPGi14NkL5RnHUQWusnDM1TCUR3ntsjhbHZbtKnbRrdsA4CcAw68kvB?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/31PGEhwHdVjoe7Q5eEKS8jJj9mBoab81ohpni4jPp6XPdKR6p35jcZkj9KUwBPZqHFuHsfVMByeeUksNHak7teng?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/3fdC4okvbbDeu6zEnr4253aUHhjZ8eJWyku9bySG9hkHxhGBUyZDM1QH4KGsVrWbkzmSPr1kgKRwdYXjhKxmcyYF?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 18202701,
+  "statKey": 1,
+  "market": "H1GruXrSr4bjMVd5JKZSHmyxWTNhRxmjnzft67Ft44Fb",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/DubfESZYGjA6MYyxRMmBRSv7QheG2zgHgMdLUn4wLAbgL2J6FSKtPj5m2rXNXtNJYMb2wENEUYtfvtfkiJ8aUnC?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/55CeNyMhsatonZjUsKmF66xogQCyMwb2oZZ85mKQY3tQGSiRj4jg7XLguGSPCDXBAzB2bH1x7Uc4HkMVfqSBpwNP?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/5zLy5F2mVfkYcMf2gMPUqYeZE7RRTVwvCNurHnJz5iRvBSZJ5sSZ6FbQBfD5cmicyKxLURgW4LPwQwPdtZxPhgEN?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/ts5M2fTYdCAbaRQgKVCc35xkTDwaabM3oNrtMBDC4Yue7y5oZa5k4A1eNjgEQchfU892zQkoQs3TmmZy74mxnJc?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/53Bod9FRgnBrA5vbH5UnxGpnekxNYR2LYcWn7CXa1XEnG3eKAVpNGGXYoqNN1aCk3teVFtc9X619JcGSgnk7F3oa?cluster=devnet"
+  }
+ },
+ {
+  "fixtureId": 18202701,
+  "statKey": 2,
+  "market": "EZxCv3geXX1emdi6RpM5XU5BQXeKGotpvXZF4wgLQ3Jf",
+  "links": {
+   "create_market": "https://explorer.solana.com/tx/3yjKLxrBT5rd71GgiZnoUVM8HtA6fnP2b7dYEwdDLdUyCxoc5GuSwVV2DYYWg3BVaPCVS8Ac8czJCtkpHSbWtFkA?cluster=devnet",
+   "stake_yes": "https://explorer.solana.com/tx/2CzFp8RLRGJnV4mXveR5raFz6hGaxspQHhf6DEbkyqM7WJa2MUETSxENP1sNGho1RJBC7HsDW5xfxbmpXAe8hUhX?cluster=devnet",
+   "stake_no": "https://explorer.solana.com/tx/53ZYxXpU8YVYtwpegmz9ad5tj1BzmBnYT5BTmMo5xLR7VcmPvKrd8zAzgjJGwRgFUb8xJDdH7VDYBrH9WEFzpAwe?cluster=devnet",
+   "settle": "https://explorer.solana.com/tx/sqQYX7NoBVrAChKTVEqKTWmHBGaS7wzsTDxdZjxcwJVBH3JLpSAaCQ5gmSFY3oMPRjGWMQE4mLwVRsEGW4Tqm5o?cluster=devnet",
+   "claim": "https://explorer.solana.com/tx/5okRAovoC5aGYVcgbd4L3PC2SYkwT1eaWqM2b8VWvwnyfrXQtSzX8KPMzFBbJyQd2LnstpxGvykou9BSq4TpyapM?cluster=devnet"
+  }
+ }
+]

@@ -49,7 +49,7 @@ TXORACLE_PROGRAM_ID = Pubkey.from_string(os.environ.get("GORILLA_TXORACLE_ID", D
 # address = settlement_core::ID, so a caller can't redirect the CPI to a look-alike). Single
 # deployment (one declare_id! for devnet + mainnet), unlike the oracle; env-overridable to
 # mirror TXORACLE_PROGRAM_ID and keep a mainnet build a pure-config change.
-SETTLEMENT_ENGINE_ID = "Et7X2jeZY6iNVDjz3jUUydm3ni3vWi8sPB4t59okNdxT"
+SETTLEMENT_ENGINE_ID = "9S6SwSp5ShrDV7NLhtUCqttHTgXTPp7PCNuWuSeHjEjT"
 SETTLEMENT_ENGINE_PROGRAM_ID = Pubkey.from_string(
     os.environ.get("GORILLA_SETTLEMENT_ENGINE_ID", SETTLEMENT_ENGINE_ID)
 )

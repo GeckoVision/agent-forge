@@ -33,7 +33,7 @@ pub use txoracle_cpi::{
     StatTerm, TraderPredicate, TXORACLE_PROGRAM_ID,
 };
 
-declare_id!("Et7X2jeZY6iNVDjz3jUUydm3ni3vWi8sPB4t59okNdxT");
+declare_id!("9S6SwSp5ShrDV7NLhtUCqttHTgXTPp7PCNuWuSeHjEjT");
 
 /// Anchor discriminator for `settlement_core::resolve` (sha256("global:resolve")[..8]).
 /// Consumers building the CPI by hand pin this; `cpi::resolve` uses it internally.

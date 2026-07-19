@@ -39,13 +39,13 @@ pub const TXORACLE_ID: Pubkey = solana_sdk::pubkey!("6pW64gN1s2uqjHkn1unFeEjAwJk
 /// txoracle double) — so the suite loads THREE programs, and `ix_settle` carries the
 /// engine account through. Matches `declare_id!` in settlement-core.
 pub const SETTLEMENT_ENGINE_ID: Pubkey =
-    solana_sdk::pubkey!("Et7X2jeZY6iNVDjz3jUUydm3ni3vWi8sPB4t59okNdxT");
+    solana_sdk::pubkey!("9S6SwSp5ShrDV7NLhtUCqttHTgXTPp7PCNuWuSeHjEjT");
 
 /// forge-insurance program id — the SECOND consumer of the engine. Matches
 /// `declare_id!` in forge-insurance. Loaded alongside forge-markets so the killer
 /// suite drives BOTH consumers against the SAME engine + txoracle double.
 pub const FORGE_INSURANCE_ID: Pubkey =
-    solana_sdk::pubkey!("5WNptSKnJvJYc141h9ACAcU5ENSXkk7puk4CpXzUfVQs");
+    solana_sdk::pubkey!("F8kKN4syidmfRuy5atqhUuJPVQFM4DYH5xmqQ9pSQ22A");
 
 pub const SYSTEM_PROGRAM: Pubkey = solana_sdk::pubkey!("11111111111111111111111111111111");
 

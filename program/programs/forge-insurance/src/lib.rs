@@ -26,7 +26,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("5WNptSKnJvJYc141h9ACAcU5ENSXkk7puk4CpXzUfVQs");
+declare_id!("F8kKN4syidmfRuy5atqhUuJPVQFM4DYH5xmqQ9pSQ22A");
 
 #[program]
 pub mod forge_insurance {

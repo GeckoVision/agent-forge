@@ -386,7 +386,7 @@ def test_settlement_engine_id_pins_the_deployed_engine():
     """settle CPIs settlement-core, pinned on-chain by address = settlement_core::ID. Pin the
     off-chain constant to that same deployed engine id so a wrong/typo'd address is caught here,
     not by an account-mismatch revert on devnet."""
-    assert str(SETTLEMENT_ENGINE_PROGRAM_ID) == "Et7X2jeZY6iNVDjz3jUUydm3ni3vWi8sPB4t59okNdxT"
+    assert str(SETTLEMENT_ENGINE_PROGRAM_ID) == "9S6SwSp5ShrDV7NLhtUCqttHTgXTPp7PCNuWuSeHjEjT"
 
 
 def test_txoracle_id_env_override_flips_target_and_root_pda():
