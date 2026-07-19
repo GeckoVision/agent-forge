@@ -1,0 +1,25 @@
+[package]
+name = "forge-insurance"
+version = "0.1.0"
+description = "Parametric event insurance — the SECOND consumer of the settlement-core engine, settling on the same TxODDS validate_stat proof as forge-markets. Anchor 1.0. DEVNET-ONLY, UNDEPLOYED."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "forge_insurance"
+
+[features]
+default = []
+mainnet-oracle = ["settlement-core/mainnet-oracle"]
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "1.0.2"
+# Consume the engine's CPI helper + shared types — NO CPI/binding logic duplicated.
+settlement-core = { path = "../settlement-core", features = ["cpi"] }

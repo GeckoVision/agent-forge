@@ -56,6 +56,7 @@ pub struct Claim<'info> {
 }
 
 pub fn claim_handler(ctx: Context<Claim>) -> Result<()> {
+    // ── CHECKS ──
     let market = &ctx.accounts.market;
     let position = &ctx.accounts.position;
 
@@ -83,9 +84,17 @@ pub fn claim_handler(ctx: Context<Claim>) -> Result<()> {
         .checked_div(winner_total as u128)
         .ok_or(SettlementError::Overflow)? as u64;
 
-    // The vault PDA signs the outbound transfer with its seeds.
     let market_key = market.key();
-    let signer_seeds: &[&[&[u8]]] = &[&[VAULT_SEED, market_key.as_ref(), &[market.vault_bump]]];
+    let vault_bump = market.vault_bump;
+
+    // ── EFFECTS (before the transfer — checks-effects-interactions) ──
+    // Mark claimed BEFORE any lamports move so a re-entrant callee can never see an
+    // unclaimed position. (Was previously set AFTER the transfer — the auditor-reflex
+    // anti-pattern flagged in SETTLEMENT-ENGINE.md.)
+    ctx.accounts.position.claimed = true;
+
+    // ── INTERACTIONS ── the vault PDA signs the outbound transfer with its seeds.
+    let signer_seeds: &[&[&[u8]]] = &[&[VAULT_SEED, market_key.as_ref(), &[vault_bump]]];
     transfer(
         CpiContext::new_with_signer(
             ctx.accounts.system_program.key(),
@@ -97,8 +106,6 @@ pub fn claim_handler(ctx: Context<Claim>) -> Result<()> {
         ),
         payout,
     )?;
-
-    ctx.accounts.position.claimed = true;
 
     emit!(Claimed {
         market: market_key,

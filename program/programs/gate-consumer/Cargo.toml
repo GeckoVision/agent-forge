@@ -1,0 +1,22 @@
+[package]
+name = "gate-consumer"
+version = "0.1.0"
+description = "GATE PROBE ONLY — trivial consumer that CPIs gate-engine and records the returned bool, proving return-data survives a two-hop CPI. Mollusk-only, NEVER deployed."
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "gate_consumer"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "1.0.2"

@@ -4,9 +4,17 @@
 # members explicitly is unambiguous.
 members = [
     "programs/forge-markets",
+    # The reusable trustless settlement ENGINE — consumers CPI its `resolve`.
+    "programs/settlement-core",
+    # SECOND consumer of the engine (proves reuse) — parametric event insurance.
+    "programs/forge-insurance",
     # TEST DOUBLE for txoracle::validate_stat — Mollusk-only, never in Anchor.toml
     # (no devnet deploy target). See programs/mock-txoracle/src/lib.rs.
     "programs/mock-txoracle",
+    # GATE PROBES — Mollusk-only, never deployed. Prove return-data survives the
+    # two-hop consumer→engine→txoracle CPI (SETTLEMENT-ENGINE.md #1 risk).
+    "programs/gate-engine",
+    "programs/gate-consumer",
     "tests",
 ]
 resolver = "2"
